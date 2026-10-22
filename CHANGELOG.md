@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
 ### Added
 - Fulfilment tracking (R1): `fulfilled_at`, `fulfilment_dispatches` and
   `next_fulfilment_dispatch_at` columns on the payments table (new migration;
@@ -56,3 +58,6 @@ All notable changes to this package are documented here. The format follows
 - Applications must call `markFulfilled()` after handling `PaymentSucceeded`;
   otherwise the event is raised again. Migration path: call it from the
   listener, or set `PAYMENT_GATEWAY_REDISPATCH_UNFULFILLED=false`.
+
+[Unreleased]: https://github.com/Mo7mud/laravel-payment-gateways/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Mo7mud/laravel-payment-gateways/releases/tag/v0.2.0

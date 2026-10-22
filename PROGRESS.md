@@ -1,6 +1,9 @@
 # التقدّم
 
-المرجع: `04-package-review.md` (ملفات المشروع). النطاق: R1 ← R3 ← R16 ← `v0.2.0`، والباقي مؤجّل.
+المرجع: `04-package-review.md` (ملفات المشروع). النطاق: R1 ← R3 ← R16 ← `v0.2.0` ✅، والباقي مؤجّل.
+
+**الإصدار الحالي:** `v0.2.0` (2026-10-22). والحزمة مقفولة لحد ما مشروع يطلب حاجة.
+**الجاي:** مشروع تجريبي لتجارب البوابات (`docs/experiments.md`)، وأولها E-K4.
 
 ## الحالة
 | البند | الحالة | ملاحظة |
@@ -8,7 +11,7 @@
 | R1 تنفيذ الطلب لو الـ listener فشل | ✅ | `markFulfilled()` + `payments:redispatch-unfulfilled`، والـ listener exception بقت log `critical` |
 | R2 ربط webhook فواتيرك | ✅ من التوثيق | فاضل اختبار `findByGatewayReference` + log `warning` لـ `PaymentNotFound` |
 | R3 الرجوع: status sync + redirect لكل دفع | ✅ | `return.sync_status` و`return.allowed_hosts` و`{status}`/`{gateway}` |
-| R16 `cancelPayment()` | ✅ | فاضل تجربة E-K4، وبعدها `v0.2.0` |
+| R16 `cancelPayment()` | ✅ | فاضل تجربة E-K4 (مش بتوقّف الإصدار) |
 | الباقي (R2 الاختبار، R4–R15، R17–R19) | ⏸️ مؤجّل | بيتعمل بس لو مشروع طلبه |
 
 ## قرارات
@@ -18,4 +21,4 @@
 - **R1:** أي exception في الـ listener بعد الـ commit بتتسجل ومبتترميش، لأن الـ retry من البوابة بيرجع duplicate ومبيفيدش.
 
 ## آخر إيداع
-- R3 (بعد R1، بعد `762f3f3`)
+- R16، وبعده `chore(release): v0.2.0`
