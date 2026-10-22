@@ -30,6 +30,12 @@ enum PaymentStatus: string
         return !$this->isPaid();
     }
 
+    /** Paid and not fully refunded: the order still has to be fulfilled. */
+    public function awaitsFulfilment(): bool
+    {
+        return in_array($this, [self::SUCCEEDED, self::REFUNDING, self::PARTIALLY_REFUNDED], true);
+    }
+
     public function isRefundable(): bool
     {
         return in_array($this, [self::SUCCEEDED, self::PARTIALLY_REFUNDED], true);

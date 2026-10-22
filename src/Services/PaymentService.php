@@ -6,6 +6,7 @@ namespace Mo7mud\LaravelPaymentGateway\Services;
 
 use Closure;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -41,6 +42,7 @@ use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventStatus;
 use Mo7mud\LaravelPaymentGateway\Events\LatePaymentReceived;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentAttemptFailed;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentClosed;
+use Mo7mud\LaravelPaymentGateway\Events\PaymentEvent;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentRefunded;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentStatusChanged;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentSucceeded;
@@ -50,6 +52,7 @@ use Mo7mud\LaravelPaymentGateway\Exceptions\InvalidRefundException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentAmountMismatchException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentCreationInProgressException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentNotFoundException;
+use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentNotPaidException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentReferenceConflictException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\UnsupportedPaymentOperationException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
@@ -113,6 +116,9 @@ final class PaymentService
             'expiry_grace_minutes' => 30,
             'reconcile_base_delay_seconds' => 300,
             'reconcile_max_delay_seconds' => 21600,
+            'fulfilment_max_dispatches' => 10,
+            'fulfilment_base_delay_seconds' => 300,
+            'fulfilment_max_delay_seconds' => 21600,
         ], $options);
     }
 
@@ -427,6 +433,119 @@ final class PaymentService
             $payment->reconcile_attempts = $attempts;
             $payment->next_reconcile_at = $now->modify('+' . $delay . ' seconds');
             $this->payments->save($payment);
+        });
+    }
+
+    // ---------------------------------------------------------------------
+    // Fulfilment
+    // ---------------------------------------------------------------------
+
+    /**
+     * Records that the application has handled PaymentSucceeded for this
+     * payment (fulfilled the order, or decided not to, e.g. for a late
+     * payment). Until then payments:redispatch-unfulfilled raises the event
+     * again. Call it in the same database transaction as the fulfilment.
+     *
+     * Idempotent: returns false when the payment was already marked.
+     */
+    public function markFulfilled(string $reference, ?DateTimeImmutable $now = null): bool
+    {
+        $now ??= new DateTimeImmutable();
+
+        return $this->atomic(function () use ($reference, $now): bool {
+            $payment = $this->payments->findByReferenceForUpdate($reference) ?? throw new PaymentNotFoundException($reference);
+
+            if (!$payment->status->isPaid()) {
+                throw new PaymentNotPaidException($reference, $payment->status);
+            }
+
+            if ($payment->fulfilled_at !== null) {
+                return false;
+            }
+
+            $payment->fulfilled_at = $now;
+            $payment->next_fulfilment_dispatch_at = null;
+            $this->payments->save($payment);
+
+            return true;
+        });
+    }
+
+    /**
+     * Raises PaymentSucceeded again for payments paid at or before $paidBefore
+     * that were never marked fulfilled (a listener failed, a queue job was
+     * lost). Each payment is retried with exponential back-off, at most
+     * fulfilment_max_dispatches times. Returns the number of events raised.
+     */
+    public function redispatchUnfulfilled(DateTimeInterface $paidBefore, int $limit = 100, ?DateTimeImmutable $now = null): int
+    {
+        $now ??= new DateTimeImmutable();
+        $maxDispatches = max(1, (int) $this->options['fulfilment_max_dispatches']);
+        $raised = 0;
+
+        foreach ($this->payments->findUnfulfilledCandidates($paidBefore, $now, $maxDispatches, $limit) as $candidate) {
+            $reference = (string) $candidate->reference;
+
+            try {
+                if ($this->redispatchFulfilment($reference, $paidBefore, $now, $maxDispatches)) {
+                    $raised++;
+                }
+            } catch (Throwable $e) {
+                $this->logger->error('payment.fulfilment_redispatch_failed', [
+                    'payment_reference' => $reference,
+                    'exception' => $e::class,
+                ]);
+            }
+        }
+
+        return $raised;
+    }
+
+    private function redispatchFulfilment(string $reference, DateTimeInterface $paidBefore, DateTimeImmutable $now, int $maxDispatches): bool
+    {
+        return $this->atomic(function () use ($reference, $paidBefore, $now, $maxDispatches): bool {
+            $payment = $this->payments->findByReferenceForUpdate($reference);
+            $dispatches = (int) ($payment?->fulfilment_dispatches ?? 0);
+            $next = $payment?->next_fulfilment_dispatch_at;
+
+            // Re-checked under the lock: markFulfilled() may have run since the lookup.
+            if ($payment === null
+                || $payment->fulfilled_at !== null
+                || !$payment->status->awaitsFulfilment()
+                || $payment->paid_at === null
+                || $payment->paid_at->getTimestamp() > $paidBefore->getTimestamp()
+                || $dispatches >= $maxDispatches
+                || ($next !== null && $next->getTimestamp() > $now->getTimestamp())) {
+                return false;
+            }
+
+            $dispatches++;
+            $delay = min(
+                (int) $this->options['fulfilment_max_delay_seconds'],
+                (int) $this->options['fulfilment_base_delay_seconds'] * (2 ** min($dispatches - 1, 16)),
+            );
+
+            $payment->fulfilment_dispatches = $dispatches;
+            $payment->next_fulfilment_dispatch_at = $now->modify('+' . $delay . ' seconds');
+            $this->payments->save($payment);
+
+            $this->logger->warning('payment.fulfilment_redispatched', [
+                'payment_reference' => $reference,
+                'gateway' => $payment->gateway,
+                'dispatch' => $dispatches,
+            ]);
+
+            if ($dispatches >= $maxDispatches) {
+                $this->logger->critical('payment.fulfilment_redispatch_exhausted', [
+                    'payment_reference' => $reference,
+                    'gateway' => $payment->gateway,
+                    'dispatches' => $dispatches,
+                ]);
+            }
+
+            $this->outbox[] = new PaymentSucceeded($reference, $payment->gatewayKey(), (bool) $payment->late_payment);
+
+            return true;
         });
     }
 
@@ -1484,6 +1603,13 @@ final class PaymentService
             $payment->paid_at = $occurredAt ?? new DateTimeImmutable();
         }
 
+        if ($to === PaymentStatus::SUCCEEDED && $payment->fulfilled_at === null) {
+            // PaymentSucceeded is raised now; paid_at may be much older (a late
+            // notification), so give its listeners time before any redispatch.
+            $payment->next_fulfilment_dispatch_at = (new DateTimeImmutable())
+                ->modify('+' . (int) $this->options['fulfilment_base_delay_seconds'] . ' seconds');
+        }
+
         if ($decision === TransitionDecision::LATE_PAYMENT) {
             $payment->late_payment = true;
             $this->logger->warning('payment.late_payment', [
@@ -1564,6 +1690,12 @@ final class PaymentService
      * Runs $callback in a transaction and dispatches the events it raised only
      * after it committed.
      *
+     * A listener exception is logged (critical) and never thrown: the state is
+     * already committed, so failing the caller (a webhook answered with 500)
+     * would only make the gateway resend a notification that is now a
+     * duplicate. The remaining events are still dispatched, and an unfulfilled
+     * payment gets PaymentSucceeded again from payments:redispatch-unfulfilled.
+     *
      * @template T
      * @param Closure(): T $callback
      * @return T
@@ -1583,7 +1715,15 @@ final class PaymentService
 
         if ($this->events !== null) {
             foreach ($events as $event) {
-                $this->events->dispatch($event);
+                try {
+                    $this->events->dispatch($event);
+                } catch (Throwable $e) {
+                    $this->logger->critical('payment.listener_failed', [
+                        'event' => $event::class,
+                        'payment_reference' => $event instanceof PaymentEvent ? $event->paymentReference : null,
+                        'exception' => $e,
+                    ]);
+                }
             }
         }
 

@@ -84,6 +84,21 @@ return [
         'max_delay_seconds' => 21600,
     ],
 
+    // The application confirms each PaymentSucceeded it handled with
+    // PaymentService::markFulfilled(). payments:redispatch-unfulfilled raises
+    // the event again for paid payments without that confirmation (a listener
+    // failed, a queued job was lost), with back-off, up to max_dispatches times.
+    // Scheduled with payments:reconcile (needs reconciliation.schedule).
+    'fulfilment' => [
+        'redispatch' => env('PAYMENT_GATEWAY_REDISPATCH_UNFULFILLED', true),
+        'cron' => '*/5 * * * *',
+        'older_than_minutes' => 10,
+        'limit' => 100,
+        'max_dispatches' => 10,
+        'base_delay_seconds' => 300,
+        'max_delay_seconds' => 21600,
+    ],
+
     'admin' => [
         // Off by default. When on, a Gate ability is required (fails closed).
         'enabled' => env('PAYMENT_GATEWAY_ADMIN_ENABLED', false),

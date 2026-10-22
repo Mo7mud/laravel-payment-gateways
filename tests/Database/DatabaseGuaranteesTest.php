@@ -96,6 +96,44 @@ final class DatabaseGuaranteesTest extends TestCase
         self::assertSame(2000, $refunds->sumAmount('ORD-P1', RefundStatus::PENDING));
     }
 
+    public function test_unfulfilled_payment_lookup_runs_on_this_database(): void
+    {
+        $repository = new EloquentPaymentRepository();
+        $paidAt = new \DateTimeImmutable('-1 hour');
+
+        $due = $this->payment('ORD-F1', 'ORD-F1');
+        $due->status = PaymentStatus::SUCCEEDED;
+        $due->paid_at = $paidAt;
+        $repository->save($due);
+
+        $fulfilled = $this->payment('ORD-F2', 'ORD-F2');
+        $fulfilled->status = PaymentStatus::SUCCEEDED;
+        $fulfilled->paid_at = $paidAt;
+        $fulfilled->fulfilled_at = $paidAt;
+        $repository->save($fulfilled);
+
+        $backingOff = $this->payment('ORD-F3', 'ORD-F3');
+        $backingOff->status = PaymentStatus::PARTIALLY_REFUNDED;
+        $backingOff->paid_at = new \DateTimeImmutable('-50 minutes');
+        $backingOff->next_fulfilment_dispatch_at = new \DateTimeImmutable('+1 hour');
+        $repository->save($backingOff);
+
+        $refunded = $this->payment('ORD-F4', 'ORD-F4');
+        $refunded->status = PaymentStatus::REFUNDED;
+        $refunded->paid_at = $paidAt;
+        $repository->save($refunded);
+
+        $now = new \DateTimeImmutable();
+        $references = static fn (iterable $payments): array => array_map(
+            static fn (Payment $payment): string => (string) $payment->reference,
+            [...$payments],
+        );
+
+        self::assertSame(['ORD-F1'], $references($repository->findUnfulfilledCandidates($now, $now, 10)));
+        self::assertSame(['ORD-F1', 'ORD-F3'], $references($repository->findUnfulfilledCandidates($now, new \DateTimeImmutable('+2 hours'), 10)));
+        self::assertSame([], $references($repository->findUnfulfilledCandidates(new \DateTimeImmutable('-2 hours'), $now, 10)));
+    }
+
     public function test_row_locks_block_a_second_connection(): void
     {
         $driver = Capsule::connection()->getDriverName();

@@ -4,7 +4,7 @@
 - التحقق من الـ webhooks، وأي دفع بيتأكد من API البوابة قبل ما يتطبق
 - قفل على مستوى الصف (row locks)، وidempotency للـ webhooks والـ refunds
 - دفتر refunds، وفلوس محسوبة بـ minor units
-- reconciliation أوتوماتيك، و**events بعد الـ commit** للتطبيق
+- reconciliation أوتوماتيك، و**events بعد الـ commit** للتطبيق، وإعادة إطلاق `PaymentSucceeded` لحد ما التطبيق يأكّد التنفيذ بـ `markFulfilled()`
 
 ```bash
 composer require mo7mud/laravel-payment-gateway && php artisan migrate
@@ -17,6 +17,7 @@ $result = app(PaymentService::class)->createPayment('kashier', new CreatePayment
     returnUrl: route('checkout.return'),
 ));
 // redirect to $result->checkoutUrl — then fulfil the order from the PaymentSucceeded event
+// and confirm it with $payments->markFulfilled($event->paymentReference)
 ```
 
 ## التوثيق
@@ -31,4 +32,4 @@ $result = app(PaymentService::class)->createPayment('kashier', new CreatePayment
 **قاعدة صيانة:** لو أي معلومة عن بوابة اتأكدت بالتجربة أو اتغيّرت، بنحدّث `experiments.md` الأول، وبعدها ملف البوابة.
 
 ## الحالة
-الـ tests: من 142، فيه 133 ناجح و5 skipped (اختبارات تكامل محتاجة مفاتيح حقيقية، واختبار lock محتاج MySQL). والتغييرات المخططة (R1، R3، R16...) في مراجعة المشروع.
+التقدّم في [`PROGRESS.md`](PROGRESS.md)، والتغييرات في [`CHANGELOG.md`](CHANGELOG.md).

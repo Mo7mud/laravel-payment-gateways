@@ -13,6 +13,7 @@ use Mo7mud\LaravelPaymentGateway\Admin\EnvironmentManager;
 use Mo7mud\LaravelPaymentGateway\Admin\PaymentIntegrationService;
 use Mo7mud\LaravelPaymentGateway\Console\PaymentReconciliationCommand;
 use Mo7mud\LaravelPaymentGateway\Console\PruneWebhookEventsCommand;
+use Mo7mud\LaravelPaymentGateway\Console\RedispatchUnfulfilledCommand;
 use Mo7mud\LaravelPaymentGateway\Console\ResolveRefundCommand;
 use Mo7mud\LaravelPaymentGateway\Console\SyncIntegrationsCommand;
 use Mo7mud\LaravelPaymentGateway\Contracts\TransactionRunnerInterface;
@@ -88,6 +89,9 @@ final class PaymentServiceProvider extends ServiceProvider
                 'expiry_grace_minutes' => (int) config('payment-gateway.payments.expiry_grace_minutes', 30),
                 'reconcile_base_delay_seconds' => (int) config('payment-gateway.reconciliation.base_delay_seconds', 300),
                 'reconcile_max_delay_seconds' => (int) config('payment-gateway.reconciliation.max_delay_seconds', 21600),
+                'fulfilment_max_dispatches' => (int) config('payment-gateway.fulfilment.max_dispatches', 10),
+                'fulfilment_base_delay_seconds' => (int) config('payment-gateway.fulfilment.base_delay_seconds', 300),
+                'fulfilment_max_delay_seconds' => (int) config('payment-gateway.fulfilment.max_delay_seconds', 21600),
             ],
         ));
 
@@ -105,6 +109,7 @@ final class PaymentServiceProvider extends ServiceProvider
             $this->commands([
                 PaymentReconciliationCommand::class,
                 PruneWebhookEventsCommand::class,
+                RedispatchUnfulfilledCommand::class,
                 SyncIntegrationsCommand::class,
                 ResolveRefundCommand::class,
             ]);
@@ -132,7 +137,9 @@ final class PaymentServiceProvider extends ServiceProvider
         }
 
         if ($this->flag('payment-gateway.reconciliation.schedule', true)) {
-            $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
+            $redispatch = $this->flag('payment-gateway.fulfilment.redispatch', true);
+
+            $this->callAfterResolving(Schedule::class, static function (Schedule $schedule) use ($redispatch): void {
                 $schedule->command('payments:reconcile')
                     ->cron((string) config('payment-gateway.reconciliation.cron', '*/5 * * * *'))
                     ->withoutOverlapping(30)
@@ -142,6 +149,13 @@ final class PaymentServiceProvider extends ServiceProvider
                     ->daily()
                     ->withoutOverlapping()
                     ->onOneServer();
+
+                if ($redispatch) {
+                    $schedule->command('payments:redispatch-unfulfilled')
+                        ->cron((string) config('payment-gateway.fulfilment.cron', '*/5 * * * *'))
+                        ->withoutOverlapping(30)
+                        ->onOneServer();
+                }
             });
         }
     }

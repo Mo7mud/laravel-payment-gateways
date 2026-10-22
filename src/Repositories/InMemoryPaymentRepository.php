@@ -88,6 +88,35 @@ final class InMemoryPaymentRepository implements PaymentRepositoryInterface
         return array_slice($candidates, 0, $limit);
     }
 
+    public function findUnfulfilledCandidates(
+        DateTimeInterface $paidBefore,
+        DateTimeInterface $dueAt,
+        int $maxDispatches,
+        int $limit = 100,
+    ): iterable {
+        $candidates = [];
+
+        foreach ($this->payments as $payment) {
+            $paidAt = $payment->paid_at;
+            $next = $payment->next_fulfilment_dispatch_at;
+
+            if ($payment->fulfilled_at !== null
+                || !$payment->status->awaitsFulfilment()
+                || $paidAt === null
+                || $paidAt->getTimestamp() > $paidBefore->getTimestamp()
+                || (int) ($payment->fulfilment_dispatches ?? 0) >= $maxDispatches
+                || ($next !== null && $next->getTimestamp() > $dueAt->getTimestamp())) {
+                continue;
+            }
+
+            $candidates[] = clone $payment;
+        }
+
+        usort($candidates, static fn (Payment $a, Payment $b): int => $a->paid_at?->getTimestamp() <=> $b->paid_at?->getTimestamp());
+
+        return array_slice($candidates, 0, $limit);
+    }
+
     public function save(Payment $payment): Payment
     {
         if ($payment->usesTimestamps()) {

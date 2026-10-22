@@ -75,6 +75,32 @@ final class EloquentPaymentRepository implements PaymentRepositoryInterface
             ->get();
     }
 
+    public function findUnfulfilledCandidates(
+        DateTimeInterface $paidBefore,
+        DateTimeInterface $dueAt,
+        int $maxDispatches,
+        int $limit = 100,
+    ): iterable {
+        $statuses = array_values(array_map(
+            static fn (PaymentStatus $status): string => $status->value,
+            array_filter(PaymentStatus::cases(), static fn (PaymentStatus $status): bool => $status->awaitsFulfilment()),
+        ));
+
+        return Payment::query()
+            ->whereNull('fulfilled_at')
+            ->whereNotNull('paid_at')
+            ->where('paid_at', '<=', $paidBefore)
+            ->whereIn('status', $statuses)
+            ->where('fulfilment_dispatches', '<', $maxDispatches)
+            ->where(function ($query) use ($dueAt): void {
+                $query->whereNull('next_fulfilment_dispatch_at')
+                    ->orWhere('next_fulfilment_dispatch_at', '<=', $dueAt);
+            })
+            ->orderBy('paid_at')
+            ->limit($limit)
+            ->get();
+    }
+
     public function save(Payment $payment): Payment
     {
         $payment->save();

@@ -21,7 +21,7 @@ php artisan vendor:publish --tag=payment-gateway-config
 ```
 - المتطلبات: PHP ^8.2، Laravel 11/12/13، و`ext-json` و`ext-mbstring`
 - الـ Provider بيتسجّل لوحده (auto-discovery)
-- **الـ scheduler لازم يكون شغال** (`* * * * * php artisan schedule:run`)، لأن الحزمة بتسجّل `payments:reconcile` كل 5 دقايق و`payments:prune-webhooks` يومياً
+- **الـ scheduler لازم يكون شغال** (`* * * * * php artisan schedule:run`)، لأن الحزمة بتسجّل `payments:reconcile` و`payments:redispatch-unfulfilled` كل 5 دقايق، و`payments:prune-webhooks` يومياً
 
 ### الجداول
 | المفتاح | الاسم الافتراضي | المحتوى |
@@ -129,9 +129,23 @@ creation_failed  failed / cancelled / expired ──(دفع اتأكد متأخ�
 | `PaymentStatusChanged` | + `from`, `to`, `source` | لوج أو audit |
 
 ### ⚠️ عقد الـ listener (Integration contract)
-1. **Idempotent**: نفس الـ event ممكن يوصل أكتر من مرة
-2. **منفصل عن الـ webhook**: لو الـ listener رمى exception، الحزمة **مش هتطلق الـ event تاني** (R1). لحد ما R1 يتصلح: اعمل sweeper في التطبيق بيدوّر على `gateway_payments.status` اللي `isPaid` والطلب بتاعها لسه متنفّذش. **(مخطط R1:** `markFulfilled()` + `payments:redispatch-unfulfilled`**)**
-3. متنفّذش الطلب من صفحة الرجوع
+1. **Idempotent**: نفس الـ event ممكن يوصل أكتر من مرة (إعادة الإطلاق تحت، أو queue retry)
+2. **أكّد التنفيذ بـ `markFulfilled()`**: بعد ما تتعامل مع `PaymentSucceeded` (نفّذت الطلب، أو قررت ترجّع الفلوس في حالة `latePayment`)، نادي `markFulfilled` **جوه نفس الـ transaction** بتاع التنفيذ:
+   ```php
+   DB::transaction(function () use ($event, $payments) {
+       $order = Order::where('payment_reference', $event->paymentReference)->lockForUpdate()->firstOrFail();
+       if (!$order->is_paid) {
+           $order->markPaid();
+       }
+       $payments->markFulfilled($event->paymentReference); // idempotent: بترجّع false لو اتعلّم قبل كده
+   });
+   ```
+   - لو الدفع مش `isPaid()` بترمي `PaymentNotPaidException`
+   - أي دفع `succeeded` أو `refunding` أو `partially_refunded` من غير `fulfilled_at`، وعدّى عليه `fulfilment.older_than_minutes` (10)، بيطلع له `PaymentSucceeded` تاني من `payments:redispatch-unfulfilled`. ده بيحصل بـ backoff من 5 دقايق لحد 6 ساعات، ولحد `fulfilment.max_dispatches` (10) مرات، وبعدها log `critical` (`payment.fulfilment_redispatch_exhausted`) والقرار يدوي
+   - الدفع اللي اترجّع بالكامل (`refunded`) مش بيتعاد إطلاقه
+   - لو التطبيق مش عايز الآلية دي: `PAYMENT_GATEWAY_REDISPATCH_UNFULFILLED=false`
+3. **الـ exception في الـ listener مش بتوقّع العملية**: الحالة اتعملها commit خلاص، فالحزمة بتسجّل log `critical` (`payment.listener_failed`) ومعاه الـ exception، وبتكمّل باقي الـ events، والـ webhook بيرجع 200. والتعافي بيحصل من إعادة الإطلاق مش من retry البوابة
+4. متنفّذش الطلب من صفحة الرجوع
 
 ## 7. الـ Routes
 | Route | الاستخدام |
@@ -183,5 +197,5 @@ $payments->refund(new RefundPaymentRequest(
 - [ ] الـ webhook URLs متسجلة في لوحة البوابة (Fawaterk: 4 URLs، والـ paid فيه `_json`)
 - [ ] الـ cron بتاع `schedule:run` شغال، ومتأكد إن `payments:reconcile` بيشتغل (اتأكد من اللوج)
 - [ ] قناة لوج `payments` + تنبيه على `critical`
-- [ ] الـ listener بتاع `PaymentSucceeded` idempotent + sweeper (لحد R1)
+- [ ] الـ listener بتاع `PaymentSucceeded` idempotent وبينادي `markFulfilled()`، وتنبيه على `payment.listener_failed` و`payment.fulfilment_redispatch_exhausted`
 - [ ] دفعة حقيقية صغيرة + refund ليها على كل بوابة

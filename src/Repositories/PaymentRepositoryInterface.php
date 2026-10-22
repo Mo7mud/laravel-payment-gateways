@@ -36,5 +36,20 @@ interface PaymentRepositoryInterface
         ?DateTimeInterface $createdAfter = null,
     ): iterable;
 
+    /**
+     * Payments that await fulfilment (PaymentStatus::awaitsFulfilment()) and
+     * were not marked fulfilled: paid at or before $paidBefore, dispatched
+     * fewer than $maxDispatches times, and next_fulfilment_dispatch_at empty
+     * or <= $dueAt. Oldest payment first.
+     *
+     * @return iterable<int, Payment>
+     */
+    public function findUnfulfilledCandidates(
+        DateTimeInterface $paidBefore,
+        DateTimeInterface $dueAt,
+        int $maxDispatches,
+        int $limit = 100,
+    ): iterable;
+
     public function save(Payment $payment): Payment;
 }

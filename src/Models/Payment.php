@@ -26,6 +26,9 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
  * @property bool|null $late_payment
  * @property string|null $last_error
  * @property int|null $reconcile_attempts
+ * @property \DateTimeImmutable|null $fulfilled_at
+ * @property int|null $fulfilment_dispatches
+ * @property \DateTimeImmutable|null $next_fulfilment_dispatch_at
  */
 final class Payment extends Model
 {
@@ -38,6 +41,9 @@ final class Payment extends Model
         'refunded_at' => 'immutable_datetime',
         'expires_at' => 'immutable_datetime',
         'next_reconcile_at' => 'immutable_datetime',
+        'fulfilled_at' => 'immutable_datetime',
+        'next_fulfilment_dispatch_at' => 'immutable_datetime',
+        'fulfilment_dispatches' => 'integer',
         'late_payment' => 'boolean',
         'amount_minor' => 'integer',
         'refunded_amount_minor' => 'integer',
