@@ -20,7 +20,7 @@ vendor/bin/pint
 
 ## القواعد
 - **الحالة:** بتتغيّر جوه `atomic()` (transaction + `findByReferenceForUpdate`)، والـ events بتطلع بعد الـ commit. والـ exception في الـ listener بتتسجل ومبتترميش
-- **الثقة:** أي webhook أو return ميتصدقش غير بعد التوقيع، ولو التوقيع مش بيغطي الحالة والمبلغ يبقى لازم تأكيد من الـ API. والـ return عمره ما يغيّر الحالة
+- **الثقة:** أي webhook أو return ميتصدقش غير بعد التوقيع، ولو التوقيع مش بيغطي الحالة والمبلغ يبقى لازم تأكيد من الـ API. والـ query بتاع الـ return عمره ما يغيّر الحالة (الـ return ممكن يسأل الـ API بس)
 - **الفلوس:** `Money` بـ minor units بس، ومفيش float
 - **عامة:** مفيش أي حاجة خاصة بتطبيق معين. اللي التطبيق محتاجه بيتعمل بـ events أو contracts أو config
 - **التوافق:** النسخ PHP ^8.2، وLaravel 11–13، وPHPUnit 11–12. وأي breaking change بيتكتب في `CHANGELOG.md` تحت "Breaking"، ومعاه migration path

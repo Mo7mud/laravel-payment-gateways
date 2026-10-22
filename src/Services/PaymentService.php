@@ -7,9 +7,11 @@ namespace Mo7mud\LaravelPaymentGateway\Services;
 use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use InvalidArgumentException;
 use Mo7mud\LaravelPaymentGateway\Contracts\DeclaresReservedMetadataKeys;
 use Mo7mud\LaravelPaymentGateway\Contracts\GatewayAvailabilityInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
@@ -63,6 +65,7 @@ use Mo7mud\LaravelPaymentGateway\Repositories\PaymentRepositoryInterface;
 use Mo7mud\LaravelPaymentGateway\Repositories\RefundRepositoryInterface;
 use Mo7mud\LaravelPaymentGateway\Repositories\WebhookEventRepositoryInterface;
 use Mo7mud\LaravelPaymentGateway\Support\PayloadRedactor;
+use Mo7mud\LaravelPaymentGateway\Support\ReturnRedirect;
 use Mo7mud\LaravelPaymentGateway\Support\Uuid;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 use Psr\Log\LoggerInterface;
@@ -104,6 +107,7 @@ final class PaymentService
         private readonly ?GatewayAvailabilityInterface $availability = null,
         ?PayloadRedactor $redactor = null,
         array $options = [],
+        private readonly ?CacheRepository $cache = null,
     ) {
         $this->refunds = $refunds ?? new InMemoryRefundRepository();
         $this->logger = $logger ?? new NullLogger();
@@ -119,6 +123,10 @@ final class PaymentService
             'fulfilment_max_dispatches' => 10,
             'fulfilment_base_delay_seconds' => 300,
             'fulfilment_max_delay_seconds' => 21600,
+            // Off unless configured: the provider turns it on (return.sync_status).
+            'return_sync_status' => false,
+            'return_sync_lock_seconds' => 10,
+            'return_allowed_hosts' => [],
         ], $options);
     }
 
@@ -138,6 +146,8 @@ final class PaymentService
         if ($this->availability !== null && !$this->availability->isEnabled($gatewayKey)) {
             throw new GatewayDisabledException($gatewayKey);
         }
+
+        $this->assertReturnRedirectAllowed($request->metadata);
 
         try {
             /** @var array{0: Payment, 1: bool} $reservation */
@@ -190,6 +200,21 @@ final class PaymentService
         // Non-scalar gateway data (e.g. embedded-checkout parameters) is returned
         // to the caller but not persisted.
         return $this->creationResultFromPayment($payment, $result->metadata);
+    }
+
+    private function assertReturnRedirectAllowed(array $metadata): void
+    {
+        if (!array_key_exists(ReturnRedirect::METADATA_KEY, $metadata)) {
+            return;
+        }
+
+        $url = $metadata[ReturnRedirect::METADATA_KEY];
+        if (!is_string($url) || !ReturnRedirect::isAllowed($url, (array) $this->options['return_allowed_hosts'])) {
+            throw new InvalidArgumentException(sprintf(
+                'Metadata [%s] must be an http(s) URL on a host listed in payment-gateway.return.allowed_hosts.',
+                ReturnRedirect::METADATA_KEY,
+            ));
+        }
     }
 
     /** @return array{0: Payment, 1: bool} [payment, isReplay] */
@@ -550,8 +575,15 @@ final class PaymentService
     }
 
     // ---------------------------------------------------------------------
-    // Return (browser redirect) — informational only
+    // Return (browser redirect) — the query never changes state
     // ---------------------------------------------------------------------
+
+    /**
+     * Resolves the local payment for a browser return. With return_sync_status
+     * an open payment is checked once with the gateway API (getPaymentStatus),
+     * so the customer sees the real status before the webhook arrives; the
+     * query string itself is never trusted.
+     */
 
     public function handleReturn(PaymentReturnRequest $request, GatewayName|string $gatewayName): PaymentReturnResult
     {
@@ -578,7 +610,40 @@ final class PaymentService
             return $result;
         }
 
+        $payment = $this->syncOnReturn($gateway, $payment);
+
         return $result->withLocalPayment((string) $payment->reference, $payment->status);
+    }
+
+    private function syncOnReturn(PaymentGatewayInterface $gateway, Payment $payment): Payment
+    {
+        if (!(bool) $this->options['return_sync_status']
+            || !in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)
+            || !$gateway instanceof PaymentStatusProviderInterface) {
+            return $payment;
+        }
+
+        $reference = (string) $payment->reference;
+
+        // A reloaded or replayed return page must not hammer the gateway API.
+        $seconds = max(1, (int) $this->options['return_sync_lock_seconds']);
+        if ($this->cache !== null && !$this->cache->add('payment-gateway:return-sync:' . hash('sha256', $reference), 1, $seconds)) {
+            return $payment;
+        }
+
+        try {
+            $this->getPaymentStatus(new PaymentStatusRequest($reference));
+        } catch (Throwable $e) {
+            $this->logger->warning('payment.return_sync_failed', [
+                'payment_reference' => $reference,
+                'gateway' => $payment->gateway,
+                'exception' => $e::class,
+            ]);
+
+            return $payment;
+        }
+
+        return $this->payments->findByReference($reference) ?? $payment;
     }
 
     // ---------------------------------------------------------------------

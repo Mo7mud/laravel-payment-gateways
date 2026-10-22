@@ -6,6 +6,7 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\FawaterkGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Support\PayloadRedactor;
+use Mo7mud\LaravelPaymentGateway\Support\ReturnRedirect;
 
 return [
     'default' => env('PAYMENT_GATEWAY', 'kashier'),
@@ -44,9 +45,19 @@ return [
     ],
 
     'return' => [
-        // Where to send the customer after checkout; {reference} is replaced.
-        // Leave empty to get a JSON response. Never fulfil orders on return.
+        // Where to send the customer after checkout. Placeholders: {reference},
+        // {status}, {gateway}, {error}. Leave empty to get a JSON response.
+        // Never fulfil orders on return.
         'redirect_url' => env('PAYMENT_GATEWAY_RETURN_REDIRECT_URL'),
+        // Per-payment redirect: CreatePaymentRequest metadata['return_redirect_url']
+        // (same placeholders). Its host must be listed here (comma-separated in
+        // .env, exact match), otherwise createPayment() rejects it.
+        'allowed_hosts' => ReturnRedirect::hostsFromString(env('PAYMENT_GATEWAY_RETURN_ALLOWED_HOSTS')),
+        // When the customer returns to an open payment, ask the gateway API for
+        // its status once before redirecting (the query string is never trusted).
+        'sync_status' => env('PAYMENT_GATEWAY_RETURN_SYNC_STATUS', true),
+        // At most one such status query per payment within this many seconds.
+        'sync_lock_seconds' => 10,
     ],
 
     'webhooks' => [

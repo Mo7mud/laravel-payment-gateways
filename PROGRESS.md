@@ -1,22 +1,20 @@
 # التقدّم
 
-المرجع: `04-package-review.md` (ملفات المشروع)، والترتيب: R1 ← R3 ← R16 ← R4 ← R5 ← R17 ← الباقي.
+المرجع: `04-package-review.md` (ملفات المشروع). النطاق: R1 ← R3 ← R16 ← `v0.2.0`، والباقي مؤجّل.
 
 ## الحالة
 | البند | الحالة | ملاحظة |
 |---|---|---|
 | R1 تنفيذ الطلب لو الـ listener فشل | ✅ | `markFulfilled()` + `payments:redispatch-unfulfilled`، والـ listener exception بقت log `critical` |
 | R2 ربط webhook فواتيرك | ✅ من التوثيق | فاضل اختبار `findByGatewayReference` + log `warning` لـ `PaymentNotFound` |
-| R3 الرجوع: status sync + redirect لكل دفع | ⏳ التالي | |
-| R16 `cancelPayment()` | ⏳ | |
-| R4 Fawaterk `failUrl`/`pendingUrl` لكل دفع | ⏳ | |
-| R5 middleware الـ webhooks من غير `api` | ⏳ | |
-| R17 Fawaterk `expires_at` مع `due_date` | ⏳ | محتاج تجربة S2 |
-| R6–R15، R18، R19 | ⏳ | |
+| R3 الرجوع: status sync + redirect لكل دفع | ✅ | `return.sync_status` و`return.allowed_hosts` و`{status}`/`{gateway}` |
+| R16 `cancelPayment()` | ⏳ التالي | بعده `v0.2.0` |
+| الباقي (R2 الاختبار، R4–R15، R17–R19) | ⏸️ مؤجّل | بيتعمل بس لو مشروع طلبه |
 
 ## قرارات
 - **R1:** الآلية مفعّلة افتراضياً (مفيش تطبيقات شغالة بالحزمة لسه). والدفع `refunded` بالكامل مش بيتعاد إطلاقه.
+- **R3:** الـ sync عن طريق `getPaymentStatus()` بتاع الـ service (نفس قواعد الثقة)، والـ throttle بـ `cache->add` من غير ما نعمل release. والـ redirect لكل دفع بيتأكد منه مرتين: وقت الإنشاء (exception)، ووقت الرجوع (fallback للقالب).
 - **R1:** أي exception في الـ listener بعد الـ commit بتتسجل ومبتترميش، لأن الـ retry من البوابة بيرجع duplicate ومبيفيدش.
 
 ## آخر إيداع
-- `762f3f3` (قبل R1)
+- R1 (بعد `762f3f3`)

@@ -10,10 +10,13 @@ use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentGatewayInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentRefundInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReconciliationInterface;
+use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReturnHandlerInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentStatusProviderInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\WebhookHandlerInterface;
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentCreationResult;
+use Mo7mud\LaravelPaymentGateway\DTOs\PaymentReturnRequest;
+use Mo7mud\LaravelPaymentGateway\DTOs\PaymentReturnResult;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusResult;
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
@@ -36,6 +39,7 @@ class MockGateway implements
     PaymentStatusProviderInterface,
     PaymentRefundInterface,
     PaymentReconciliationInterface,
+    PaymentReturnHandlerInterface,
     WebhookHandlerInterface
 {
     /** @var array<string, PaymentStatus> */
@@ -60,6 +64,7 @@ class MockGateway implements
             reconciliation: true,
             webhooks: true,
             hostedCheckout: true,
+            returnHandling: true,
         );
     }
 
@@ -112,6 +117,17 @@ class MockGateway implements
             gatewayStatus: 'SUCCEEDED',
             occurredAt: new DateTimeImmutable(),
             metadata: $request->metadata,
+        );
+    }
+
+    /** Trusts the query (payment_reference, status): a test double has no signature. */
+    public function handleReturn(PaymentReturnRequest $request): PaymentReturnResult
+    {
+        return new PaymentReturnResult(
+            paymentReference: (string) ($request->query['payment_reference'] ?? ''),
+            observedStatus: PaymentStatus::tryFrom((string) ($request->query['status'] ?? '')) ?? PaymentStatus::PENDING,
+            rawQuery: $request->query,
+            signatureVerified: true,
         );
     }
 

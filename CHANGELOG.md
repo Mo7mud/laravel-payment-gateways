@@ -19,8 +19,20 @@ All notable changes to this package are documented here. The format follows
   `fulfilment.max_dispatches` times.
 - `fulfilment` config section (`PAYMENT_GATEWAY_REDISPATCH_UNFULFILLED`).
 - `PaymentStatus::awaitsFulfilment()`.
+- Return status sync (R3): when the customer returns to a `pending`/`processing`
+  payment, `handleReturn()` asks the gateway API once (`getPaymentStatus()`),
+  throttled per payment through the cache (`return.sync_status`,
+  `return.sync_lock_seconds`). The query string still never changes state.
+- Per-payment return redirect (R3): `metadata['return_redirect_url']`, accepted
+  only for http(s) URLs on `return.allowed_hosts`
+  (`PAYMENT_GATEWAY_RETURN_ALLOWED_HOSTS`); `createPayment()` throws
+  `InvalidArgumentException` otherwise. `{status}` and `{gateway}`
+  placeholders in redirect templates.
+- `MockGateway` handles returns (`payment_reference`, `status` query keys).
 
 ### Changed
+- `PaymentService` takes an optional cache repository (last constructor
+  argument, `cache:`); the service provider passes the default cache store.
 - A listener exception no longer propagates out of `PaymentService`: the state
   change is already committed, so it is logged as `payment.listener_failed`
   (critical) and the remaining events are still dispatched. Webhooks whose

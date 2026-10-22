@@ -62,7 +62,9 @@ php artisan vendor:publish --tag=payment-gateway-config
 |---|---|---|
 | `PAYMENT_GATEWAY_ROUTE_PREFIX` | `payment-gateway` | |
 | `routes.middleware` | `['api','throttle:600,1']` | لو الـ `api` group عندك فيه middlewares بتعدّل في الردود، شيله (R5) |
-| `PAYMENT_GATEWAY_RETURN_REDIRECT_URL` | فاضي ← JSON | قالب فيه `{reference}` و`{error}` |
+| `PAYMENT_GATEWAY_RETURN_REDIRECT_URL` | فاضي ← JSON | قالب فيه `{reference}` و`{status}` و`{gateway}` و`{error}` |
+| `PAYMENT_GATEWAY_RETURN_ALLOWED_HOSTS` | فاضي | الـ hosts المسموحة لـ `return_redirect_url` لكل دفع، ومفصولة بـ `,` |
+| `PAYMENT_GATEWAY_RETURN_SYNC_STATUS` | `true` | بيسأل البوابة عن الحالة لما العميل يرجع والدفع لسه مفتوح |
 | `PAYMENT_GATEWAY_LOG_CHANNEL` | القناة الافتراضية | الأفضل قناة `payments` لوحدها |
 | `PAYMENT_GATEWAY_ADMIN_ENABLED` | `false` | صفحة إعدادات بتكتب في `.env`، ولازمها Gate ability |
 
@@ -103,6 +105,7 @@ return redirect()->away($result->checkoutUrl);       // ⚠️ ممكن تبقى
 | `fawaterk_mobile_wallet_number` | Fawaterk | Meeza direct |
 | `fawaterk_lang` / `fawaterk_list_style` | Fawaterk | لغة وشكل الصفحة |
 | `fawaterk_tr_number` | Fawaterk | الرقم اللي بيظهر للتاجر |
+| `return_redirect_url` | الكل | redirect خاص بالدفع ده بعد الرجوع (http/https، والـ host لازم يكون في `return.allowed_hosts`، وإلا `createPayment` بترمي `InvalidArgumentException`) |
 | `cart_items` | Fawaterk | `[{name, price, quantity}]`، والمجموع **لازم** يساوي المبلغ |
 | `forward_metadata_keys` (config) | الاتنين | مفاتيح إضافية بتتبعت للبوابة غير `payment_reference` |
 
@@ -151,15 +154,25 @@ creation_failed  failed / cancelled / expired ──(دفع اتأكد متأخ�
 | Route | الاستخدام |
 |---|---|
 | `POST {prefix}/webhooks/{gateway}/{type?}` | Kashier: `/webhooks/kashier`. Fawaterk: `/webhooks/fawaterk/paid_json` و`/failed` و`/cancel` و`/refund` |
-| `GET\|POST {prefix}/return/{gateway}` | رجوع العميل. **مش بيغيّر الحالة**، وبيعمل redirect على القالب أو JSON |
+| `GET\|POST {prefix}/return/{gateway}` | رجوع العميل. الـ query مش بيغيّر الحالة، بس ممكن يتسأل الـ API (تحت). وبعدها redirect أو JSON |
 
 أكواد الرد على الـ webhook: `401` توقيع غلط، و`200` اتعالج أو اتجاهل أو فشل بشكل نهائي، و`503` غلطة مؤقتة أو مشكلة في الإعدادات (هيتبعت تاني)، و`500` خطأ مش متوقع، و`409` مكرر (Kashier).
 
-### صفحة الرجوع في الحقيقة
-الحزمة مش بتسأل البوابة على الحالة وقت الرجوع (R3). لو التطبيق محتاج النتيجة على طول (موبايل webview مثلاً)، اعمل route خاصة بيك:
+### صفحة الرجوع
+1. **التوقيع:** البوابة بتتحقق منه (Kashier). والـ query عمره ما يغيّر الحالة
+2. **الـ sync (`return.sync_status`، الافتراضي `true`):** لو الدفع لسه `pending` أو `processing`، الحزمة بتسأل البوابة مرة واحدة بـ `getPaymentStatus()` قبل الـ redirect، فالعميل بيشوف الحالة الحقيقية حتى لو الـ webhook لسه موصلش. ولو حصل نجاح، بيطلع `PaymentSucceeded` عادي
+   - **الـ throttle:** مرة واحدة لكل دفع كل `return.sync_lock_seconds` (10) ثواني، عن طريق الـ cache
+   - **لو البوابة مردّتش:** بيتسجل log `warning` (`payment.return_sync_failed`)، والـ redirect بيكمّل بالحالة المتخزنة
+3. **الـ redirect:**
+   - لو الدفع اتعمل بـ `metadata['return_redirect_url']`، والـ host بتاعه موجود في `return.allowed_hosts`، بيتعمل redirect عليه
+   - غير كده، بيتعمل redirect على القالب `return.redirect_url`
+   - ولو القالب فاضي، الرد بيبقى JSON: `payment_reference` و`status` و`error`
+   - **الـ placeholders** في الاتنين: `{reference}` و`{status}` و`{gateway}` و`{error}`
+
+لو عندك route خاص بيك (جسر مثلاً)، `handleReturn()` بيعمل الـ sync نفسه، ونتيجته في `localStatus`:
 ```php
-$ret = $payments->handleReturn(new PaymentReturnRequest($request->query()), 'kashier'); // بيتحقق من التوقيع
-$status = $payments->getPaymentStatus(new PaymentStatusRequest($reference));          // من السيرفر، وبيطلق الـ events
+$ret = $payments->handleReturn(new PaymentReturnRequest($request->query()), 'kashier'); // بيتحقق من التوقيع، وبيعمل sync لو مفعّل
+$ret->localStatus; // الحالة المتخزنة بعد الـ sync (null لو الدفع متعرفش)
 ```
 
 ## 8. Status / Reconcile

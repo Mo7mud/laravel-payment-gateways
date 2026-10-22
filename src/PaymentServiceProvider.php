@@ -92,7 +92,11 @@ final class PaymentServiceProvider extends ServiceProvider
                 'fulfilment_max_dispatches' => (int) config('payment-gateway.fulfilment.max_dispatches', 10),
                 'fulfilment_base_delay_seconds' => (int) config('payment-gateway.fulfilment.base_delay_seconds', 300),
                 'fulfilment_max_delay_seconds' => (int) config('payment-gateway.fulfilment.max_delay_seconds', 21600),
+                'return_sync_status' => $this->flag('payment-gateway.return.sync_status', true),
+                'return_sync_lock_seconds' => (int) config('payment-gateway.return.sync_lock_seconds', 10),
+                'return_allowed_hosts' => (array) config('payment-gateway.return.allowed_hosts', []),
             ],
+            cache: $app->make('cache')->store(),
         ));
 
         $this->app->singleton(PaymentReconciliationService::class, static fn (Application $app): PaymentReconciliationService => new PaymentReconciliationService(
