@@ -14,6 +14,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use InvalidArgumentException;
 use Mo7mud\LaravelPaymentGateway\Contracts\DeclaresReservedMetadataKeys;
 use Mo7mud\LaravelPaymentGateway\Contracts\GatewayAvailabilityInterface;
+use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCancellationInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentGatewayInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReconciliationInterface;
@@ -459,6 +460,68 @@ final class PaymentService
             $payment->next_reconcile_at = $now->modify('+' . $delay . ' seconds');
             $this->payments->save($payment);
         });
+    }
+
+    // ---------------------------------------------------------------------
+    // Cancellation
+    // ---------------------------------------------------------------------
+
+    /**
+     * Closes an open payment (pending, processing or creation_failed) as
+     * CANCELLED. Gateways with PaymentCancellationInterface close the checkout
+     * first and report its status, so a payment captured just before stays
+     * paid. Otherwise the cancellation is local only: the checkout stays
+     * payable until it expires, and a capture after this is recorded as a late
+     * payment (LatePaymentReceived).
+     *
+     * Returns the stored status afterwards (CANCELLED, another closed status,
+     * or a paid status). A payment that is not open is returned unchanged.
+     * If the gateway call fails the exception is thrown and nothing changes.
+     */
+    public function cancelPayment(string $reference): PaymentStatus
+    {
+        $payment = $this->requirePayment($reference);
+
+        if ($payment->status === PaymentStatus::INITIATING) {
+            throw new PaymentCreationInProgressException($reference);
+        }
+
+        if (!$this->isCancellable($payment->status)) {
+            return $payment->status;
+        }
+
+        $gateway = $this->gateways->gateway($payment->gatewayKey());
+        $verified = null;
+        if ($gateway instanceof PaymentCancellationInterface
+            && $payment->gateway_reference !== null && $payment->gateway_reference !== '') {
+            $verified = $gateway->cancelPayment($this->statusRequestFor($payment));
+        }
+
+        return $this->atomic(function () use ($reference, $verified): PaymentStatus {
+            $locked = $this->payments->findByReferenceForUpdate($reference) ?? throw new PaymentNotFoundException($reference);
+
+            if ($verified !== null) {
+                $this->assertGatewayResultMatches($locked, $verified);
+                $this->fillIdentifiers($locked, $verified->gatewayReference, $verified->gatewayTransactionId);
+
+                if ($verified->status !== null) {
+                    $this->applyStatus($locked, $this->paymentStateOf($verified->status), $verified->gatewayStatus, $verified->occurredAt, 'cancellation');
+                }
+            }
+
+            if ($this->isCancellable($locked->status)) {
+                $this->applyStatus($locked, PaymentStatus::CANCELLED, null, null, 'cancellation');
+            }
+
+            $this->payments->save($locked);
+
+            return $locked->status;
+        });
+    }
+
+    private function isCancellable(PaymentStatus $status): bool
+    {
+        return in_array($status, [PaymentStatus::CREATION_FAILED, PaymentStatus::PENDING, PaymentStatus::PROCESSING], true);
     }
 
     // ---------------------------------------------------------------------

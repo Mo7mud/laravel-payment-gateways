@@ -14,6 +14,7 @@ final readonly class GatewayCapabilities
         public bool $refunds = false,
         public bool $partialRefunds = false,
         public bool $returnHandling = false,
+        public bool $cancellation = false,
     ) {
     }
 
@@ -50,5 +51,10 @@ final readonly class GatewayCapabilities
     public function supportsReturnHandling(): bool
     {
         return $this->returnHandling;
+    }
+
+    public function supportsCancellation(): bool
+    {
+        return $this->cancellation;
     }
 }

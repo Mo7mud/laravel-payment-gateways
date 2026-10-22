@@ -11,7 +11,7 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierApiException
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierConfigurationException;
 use Throwable;
 
-final class KashierClient implements KashierClientInterface, KashierPaginatedOrdersInterface
+final class KashierClient implements KashierClientInterface, KashierPaginatedOrdersInterface, KashierSessionCancellationInterface
 {
     public function __construct(
         private readonly Factory $http,
@@ -41,6 +41,16 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
             'Authorization' => $this->secretKey,
             'Accept' => 'application/json',
         ]);
+    }
+
+    public function abandonPaymentSession(string $sessionId): array
+    {
+        // Not retried automatically (only reads are).
+        return $this->request('patch', rtrim($this->apiBaseUrl, '/') . '/v3/payment/sessions/' . rawurlencode($sessionId), [
+            'Authorization' => $this->secretKey,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ], []);
     }
 
     public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
@@ -136,6 +146,10 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
                 'get' => $request->get($url),
                 'post' => $request->post($url, $body ?? []),
                 'put' => $request->put($url, $body ?? []),
+                // Documented body is {}; an empty PHP array would be encoded as [].
+                'patch' => $body === null || $body === []
+                    ? $request->withBody('{}', 'application/json')->patch($url)
+                    : $request->patch($url, $body),
                 default => throw new KashierApiException('Unsupported Kashier HTTP method [' . $method . '].'),
             };
         } catch (KashierApiException $e) {

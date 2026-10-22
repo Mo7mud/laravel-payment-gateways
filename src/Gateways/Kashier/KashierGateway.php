@@ -7,6 +7,7 @@ namespace Mo7mud\LaravelPaymentGateway\Gateways\Kashier;
 use DateTimeImmutable;
 use DateTimeZone;
 use Mo7mud\LaravelPaymentGateway\Contracts\DeclaresReservedMetadataKeys;
+use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCancellationInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentGatewayInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReconciliationInterface;
@@ -30,6 +31,7 @@ use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventKind;
 use Mo7mud\LaravelPaymentGateway\Exceptions\GatewayReferenceMismatchException;
+use Mo7mud\LaravelPaymentGateway\Exceptions\UnsupportedPaymentOperationException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierApiException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierConfigurationException;
@@ -43,6 +45,7 @@ final class KashierGateway implements
     PaymentCreatorInterface,
     PaymentStatusProviderInterface,
     PaymentReconciliationInterface,
+    PaymentCancellationInterface,
     PaymentRefundInterface,
     PaymentReturnHandlerInterface,
     WebhookHandlerInterface,
@@ -76,6 +79,7 @@ final class KashierGateway implements
             refunds: true,
             partialRefunds: true,
             returnHandling: true,
+            cancellation: true,
         );
     }
 
@@ -193,6 +197,26 @@ final class KashierGateway implements
         }
 
         return $this->mapSessionStatusResult($request, $data);
+    }
+
+    /**
+     * Abandons the checkout session, then reads it back: the session read is
+     * the documented confirmation, the PATCH answer is not relied on.
+     */
+    public function cancelPayment(PaymentStatusRequest $request): PaymentStatusResult
+    {
+        $sessionId = $request->gatewayReference;
+        if ($sessionId === null || $sessionId === '') {
+            throw new KashierConfigurationException('Kashier session ID (gatewayReference) is required to cancel a payment.');
+        }
+
+        if (!$this->client instanceof KashierSessionCancellationInterface) {
+            throw new UnsupportedPaymentOperationException('kashier', 'cancel_payment');
+        }
+
+        $this->client->abandonPaymentSession($sessionId);
+
+        return $this->getPaymentStatus($request);
     }
 
     public function reconcilePayment(PaymentStatusRequest $request): PaymentStatusResult

@@ -29,6 +29,17 @@ All notable changes to this package are documented here. The format follows
   `InvalidArgumentException` otherwise. `{status}` and `{gateway}`
   placeholders in redirect templates.
 - `MockGateway` handles returns (`payment_reference`, `status` query keys).
+- `PaymentService::cancelPayment(string $reference): PaymentStatus` (R16): closes
+  a pending, processing or creation_failed payment as `cancelled`. Gateways
+  implementing the new `PaymentCancellationInterface` close the checkout first
+  and report its status (a payment captured just before stays paid); others
+  cancel locally. A later capture is a late payment.
+- Kashier: `cancelPayment()` abandons the session
+  (`PATCH /v3/payment/sessions/{id}`) through the new optional
+  `KashierSessionCancellationInterface` client capability; the `ABANDONED`
+  session status maps to `cancelled`.
+- `GatewayCapabilities::$cancellation` / `supportsCancellation()`.
+- `creation_failed` → `cancelled` is a valid transition.
 
 ### Changed
 - `PaymentService` takes an optional cache repository (last constructor

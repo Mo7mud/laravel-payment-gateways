@@ -69,6 +69,8 @@ final class PaymentStateManager
             ],
             PaymentStatus::CREATION_FAILED->value => [
                 PaymentStatus::INITIATING,
+                // cancelPayment(): the order was abandoned before a checkout existed.
+                PaymentStatus::CANCELLED,
             ],
             PaymentStatus::PENDING->value => [
                 PaymentStatus::PROCESSING,

@@ -30,6 +30,7 @@
 الرد: `_id` (sessionId) + `sessionUrl` + `status` + `expireAt`.
 
 📘 **test mode بيتجاهل `allowedMethods`** وبيعرض كارت ومحفظة دايماً.
+الحزمة: `cancelPayment()` بيعمل abandon، وبعدين `GET …/payment`. والـ `ABANDONED` بيتحوّل لـ `cancelled`. ولو الدفع اتأكد بعد كده، بيتسجل late payment.
 ❓ هل الـ session بعد ما اتعملها abandon لسه ينفع تتدفع؟ (E-K4)
 ❓ لو المحاولة فشلت وجرّبت تاني، دي نفس الـ session ولا جديدة؟ وبيطلع `transactionId` جديد؟ (E-K3)
 

@@ -6,9 +6,10 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Support;
 
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierApiException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierClientInterface;
+use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSessionCancellationInterface;
 
 /** Scriptable Kashier API: session status, order search results and failures. */
-final class FakeKashierClient implements KashierClientInterface
+final class FakeKashierClient implements KashierClientInterface, KashierSessionCancellationInterface
 {
     public int $sessions = 0;
     public string $sessionStatus = 'OPENED';
@@ -17,6 +18,8 @@ final class FakeKashierClient implements KashierClientInterface
     public array $createdOrders = [];
     /** @var list<array<string, mixed>> */
     public array $orders = [];
+    /** @var list<string> session ids sent to abandonPaymentSession */
+    public array $abandoned = [];
 
     public function createPaymentSession(array $payload): array
     {
@@ -49,6 +52,17 @@ final class FakeKashierClient implements KashierClientInterface
             'refundedAmount' => 0,
             'targetTransactionId' => $paid ? 'TX-OK' : null,
         ]];
+    }
+
+    /** Like Kashier: only an open session is abandoned; a final one stays as it is. */
+    public function abandonPaymentSession(string $sessionId): array
+    {
+        $this->abandoned[] = $sessionId;
+        if (in_array($this->sessionStatus, ['CREATED', 'OPENED', 'PENDING'], true)) {
+            $this->sessionStatus = 'ABANDONED';
+        }
+
+        return ['data' => ['sessionId' => $sessionId, 'status' => $this->sessionStatus]];
     }
 
     public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array

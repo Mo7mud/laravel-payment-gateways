@@ -61,6 +61,23 @@ final class HttpClientPolicyTest extends TestCase
         self::assertCount(1, $http->recorded());
     }
 
+    public function test_kashier_abandons_a_session_with_an_empty_json_object_once(): void
+    {
+        $http = new Factory();
+        $http->fake(['*' => Factory::response(['message' => 'Upstream error'], 502)]);
+
+        try {
+            $this->kashier($http)->abandonPaymentSession('SESSION-1');
+            self::fail('Expected KashierApiException.');
+        } catch (KashierApiException) {
+        }
+
+        self::assertCount(1, $http->recorded());
+        $http->assertSent(static fn (Request $request): bool => $request->method() === 'PATCH'
+            && str_ends_with($request->url(), '/v3/payment/sessions/SESSION-1')
+            && $request->body() === '{}');
+    }
+
     public function test_fawaterk_amounts_are_sent_as_exact_numbers(): void
     {
         $http = new Factory();

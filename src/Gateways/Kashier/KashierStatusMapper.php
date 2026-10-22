@@ -18,6 +18,8 @@ final class KashierStatusMapper
             'SUCCESS', 'SUCCEEDED', 'CAPTURED', 'APPROVED', 'PAID' => PaymentStatus::SUCCEEDED,
             'FAILED', 'FAILURE', 'REFUSED', 'DECLINED', 'ERROR', 'REJECTED' => PaymentStatus::FAILED,
             'EXPIRED' => PaymentStatus::EXPIRED,
+            // Session closed by PATCH /v3/payment/sessions/{id} (documented).
+            'ABANDONED' => PaymentStatus::CANCELLED,
             'CANCELLED', 'CANCELED', 'VOIDED', 'REVERSED' => PaymentStatus::CANCELLED,
             'REFUNDING' => PaymentStatus::REFUNDING,
             'PARTIALLY_REFUNDED' => PaymentStatus::PARTIALLY_REFUNDED,

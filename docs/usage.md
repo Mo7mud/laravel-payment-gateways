@@ -196,8 +196,19 @@ $payments->refund(new RefundPaymentRequest(
 - لو النتيجة مش معروفة (timeout): الصف بيفضل pending و`outcome_unknown=true`، والقرار يتاخد يدوي بـ:
   `php artisan payments:resolve-refund {uuid} succeeded|failed --reference=`
 
-## 10. الإلغاء (مخطط، R16)
-`PaymentService::cancelPayment($reference)`: Kashier بيعمل abandon للـ session، وFawaterk إلغاء محلي بس. لو اتدفع بعد كده، بيبقى `LatePaymentReceived`.
+## 10. الإلغاء
+```php
+$status = $payments->cancelPayment('XP-...'); // PaymentStatus بعد الإلغاء
+if ($status->isPaid()) {
+    // العميل دفع قبل الإلغاء بلحظة: PaymentSucceeded طلع، وطبّق سياستك (تنفيذ أو refund)
+}
+```
+- **إمتى بيشتغل:** الدفع لازم يكون `pending` أو `processing` أو `creation_failed`، وبيتقفل `cancelled` وبيطلع `PaymentClosed`. ولو الدفع مش مفتوح، بيرجع حالته زي ما هي من غير أي تغيير
+- **`initiating`:** بيرمي `PaymentCreationInProgressException`، فحاول تاني بعد شوية
+- **Kashier:** بيعمل abandon للـ session (`PATCH`)، وبعدين بيقرا حالتها. لو كانت اتدفعت قبلها، الدفع بيفضل مدفوع (مش late)
+- **Fawaterk:** مفيش API للإلغاء، فالإلغاء محلي بس، والصفحة أو كود فوري بيفضل ينفع يتدفع لحد ما مدته تخلص
+- **الدفع المتأخر:** أي دفع بيتأكد بعد الإلغاء بيتسجل `late_payment` ويطلع `LatePaymentReceived` + `PaymentSucceeded(latePayment: true)`
+- **لو البوابة فشلت:** الـ exception بيترمي ومفيش حاجة بتتغيّر، فحاول تاني
 
 ## 11. الاختبار
 - `Testing\MockGateway` + `InMemory*Repository` + `InMemoryTransactionRunner` = اختبارات للتطبيق من غير DB ولا HTTP (الأمثلة في `tests/Unit/Webhooks/WebhookIdempotencyTest.php`)

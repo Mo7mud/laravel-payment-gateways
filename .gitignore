@@ -2,3 +2,5 @@
 composer.lock
 .phpunit.cache/
 .phpstan.cache/
+*.zip
+*.patch
