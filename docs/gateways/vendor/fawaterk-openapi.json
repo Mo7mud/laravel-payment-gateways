@@ -1,0 +1,4727 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fawaterak API",
+    "version": "3.0.0",
+    "description": "Public API transactions (API v3), enables you to accept online payments through a unified and flexible integration platform.\n\nIntegration types:\n- API integration - Server to Server integration\n- Iframe integation - Host Fawaterk transaction link at your Website.\n- Mobile integration - Native apps via OAuth + TR APIs\n\n**Authentication overview**\n- **OAuth client credentials** — machine-to-machine (`POST /oauth/token` with `grant_type=client_credentials` → Bearer on `/api/v3/*` transaction and payment-method endpoints).\n- **OAuth refresh token** — renew an access token with `POST /oauth/token` and `grant_type=refresh_token` when your integration stores a refresh token from the initial token response.\n- **Domain hash** — browser iframe without a merchant backend (`FAWATERAK-HASH-KEY` + `FAWATERAK-DOMAIN`; see **Iframe integration**)."
+  },
+  "servers": [
+    {
+      "url": "https://staging.fawaterk.com",
+      "description": "Application Staging base URL",
+      "variables": {
+        "appUrl": {
+          "default": "https://staging.fawaterk.com",
+          "description": "Set to your environment staging."
+        }
+      }
+    },
+    {
+      "url": "https://app.fawaterk.com",
+      "description": "Application Live base URL",
+      "variables": {
+        "appUrl": {
+          "default": "https://app.fawaterk.com",
+          "description": "Set to your environment live."
+        }
+      }
+    },
+    {
+      "url": "https://yoursite.com",
+      "description": "Your server — Fawaterak POSTs webhooks to URLs you configure in the dashboard or per-transaction `redirectionUrls`."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Get started",
+      "description": "To get started you need to create a business account from here appUrl/regsiter.\n <img src='https://staging.fawaterk.com/doc/register.png' width='100%'/> \n\nTo complete your integrations setup, login to your created account > Integrations tab:\n\n- OAuth client credentials (API) - to create client id and secret.\n\n- Integrations - to setup your redirection URLs / Iframe domains / Webhook URLs (paid, failed, cancel, refund)."
+    },
+    {
+      "name": "Auth token",
+      "description": "Obtain and renew Bearer access tokens for `/api/v3/*` OAuth-protected endpoints (transactions, refunds, e-invoicing).\n\n| Step | Endpoint | `grant_type` | Purpose |\n|------|----------|--------------|--------|\n| **1** | `POST /oauth/token` | `client_credentials` | Exchange client ID + secret for an access token (and refresh token when enabled) |\n| **2** | `POST /oauth/token` | `refresh_token` | Renew the access token using a stored refresh token + client ID + secret |\n\nCreate OAuth credentials in the vendor dashboard → **Integrations → OAuth client credentials**."
+    },
+    {
+      "name": "Transactions overview",
+      "x-displayName": "Overview",
+      "description": "Transactions let you process a single **one-time payment** with a clear lifecycle status: **success**, **fail**, or **pending**.\n\nThere are two ways to create a transaction:\n\n**1. Hosted checkout (redirection link)** — Do **not** send `payment_method_id`. The API creates a transaction link and returns a hosted checkout URL in `data.url`. Redirect the customer to it (or open it inside an iframe / WebView); the customer selects a payment method and pays on the Fawaterak-hosted page. This is a single payment attempt — the link is not meant to be reused for multiple tries.\n\n**2. Direct payment** — Send `payment_method_id` (from `GET /api/v3/getTrPaymentmethods`). The API initiates payment immediately with that specific method and returns the provider response in `data.payment_data` (for example a Fawry reference code, a Meeza wallet request, or a card 3-D Secure redirect).\n\n| Mode | Send `payment_method_id`? | Use from response |\n|------|---------------------------|-------------------|\n| Hosted checkout | No | `data.url` |\n| Direct payment | Yes | `data.payment_data` |\n\nAuthenticate every call with `Authorization: Bearer {access_token}` from `POST /oauth/token`. Always confirm the **final paid status from your webhook**, not only from the customer redirect."
+    },
+    {
+      "name": "API integration",
+      "description": "This is server to server APIs integtatoins enables you to list active payment methods / create trasaction link / get transaction data. Requires OAuth client credentials."
+    },
+    {
+      "name": "Iframe integration",
+      "description": "Embed Fawaterak checkout on your website with **fawaterkPlugin.js** (`/fawaterkPlugin/fawaterkPlugin.js`). Both flows open the same hosted checkout page (`/transactions/{intent_key}`) inside an iframe.\n\n---\n\n## Integration types\n\n| You have | Approach | Auth |\n|----------|----------|------|\n| **Frontend** — HTML/JavaScript only, no server | Plugin creates the session from the browser via domain hash | Domain HMAC (`FAWATERAK-HASH-KEY` + `FAWATERAK-DOMAIN`) |\n| **Backend** — a server that can call APIs securely (recommended) | Server creates the checkout session; the page only receives a checkout URL | OAuth client credentials |\n\n**Prerequisite (both types):** Register your site domain under **Integrations → iframe domains** in the vendor dashboard.\n\n---\n\n## Frontend integration (browser-only)\n\nUse when you cannot call Fawaterak APIs from a server. **Do not embed your API key in the page** — use a domain-bound hash key instead.\n\n1. **Register your domain** — Vendor dashboard → **Integrations → iframe domains** (e.g. `https://shop.example.com`).\n2. **Compute the hash key** — Prefer a small server script or build step (not hand-calculated in production):\n\n```\nProviderKey  = \"FAWATERAK.{your_vendor_id}\"\nStringToSign = \"Domain={your_domain}&ProviderKey={ProviderKey}\" \nhashKey      = HMAC-SHA256(StringToSign, your_vendor_api_key)\n```\n\nSend `hashKey` as header `FAWATERAK-HASH-KEY` and your domain as `FAWATERAK-DOMAIN`. The hash only works from registered domains.\n\n3. **Add the plugin** — Pass `hashKey` and `requestBody` (same cart fields as `createTransaction`). The plugin initializes the session automatically, then loads checkout in the iframe:\n\n```html\n<div id=\"fawaterkDivId\"></div>\n<script src=\"https://app.fawaterk.com/fawaterkPlugin/fawaterkPlugin.js\"></script>\n<script>\n  fawaterkCheckoutV2({\n    envType: \"live\",\n    hashKey: \"YOUR_DOMAIN_HASH_KEY\",\n    requestBody: {\n      \"cartTotal\": \"150.00\",\n      \"currency\": \"EGP\",\n      \"list_style\": \"h\",\n      \"customer\": {\n        \"first_name\": \"Ahmed\",\n        \"last_name\": \"Ali\",\n        \"email\": \"ahmed@example.com\",\n        \"phone\": \"01000000000\"\n      },\n      \"cartItems\": [\n        { \"name\": \"Product A\", \"price\": \"150.00\", \"quantity\": \"1\" }\n      ],\n      \"redirectionUrls\": {\n        \"successUrl\": \"https://yoursite.com/success\",\n        \"failUrl\": \"https://yoursite.com/fail\",\n        \"webhookUrl\": \"https://yoursite.com/webhooks/fawaterak_json\"\n      }\n    }\n  });\n</script>\n```\n\n`list_style` controls payment-method layout on the hosted checkout page: `\"h\"` (default) horizontal, `\"v\"` vertical.\n\n**Frontend limitations:** A user could change `cartTotal` in the browser before payment. Always verify the paid amount in your **webhook** and compare it to your order total.\n\n---\n\n## Backend integration\n\nYour server creates the payment session. The customer's browser never receives OAuth credentials or your API key.\n\n1. **Get OAuth credentials** — Vendor dashboard → **Integrations → OAuth client credentials**. Create a client and note the client ID, client secret, and token URL (`POST /oauth/token`).\n2. **Create a payment session (server-side)** — Obtain an access token (client credentials grant), then call `POST /api/v3/createTransaction` with `Authorization: Bearer {access_token}` and your cart JSON. Include `list_style` when you want a vertical payment-method list (`\"v\"`; default is `\"h\"`). Use `data.url` (or `data.short_url`) from the response as the checkout address.\n\nExample request body:\n\n```json\n{\n  \"cartTotal\": 150.00,\n  \"currency\": \"EGP\",\n  \"list_style\": \"h\",\n  \"customer\": {\n    \"first_name\": \"Ahmed\",\n    \"last_name\": \"Ali\",\n    \"email\": \"ahmed@example.com\",\n    \"phone\": \"01000000000\"\n  },\n  \"cartItems\": [\n    { \"name\": \"Product A\", \"price\": \"150.00\", \"quantity\": \"1\" }\n  ],\n  \"redirectionUrls\": {\n    \"successUrl\": \"https://yoursite.com/success\",\n    \"failUrl\": \"https://yoursite.com/fail\",\n    \"webhookUrl\": \"https://yoursite.com/webhooks/fawaterak_json\"\n  }\n}\n```\n\n3. **Add the plugin to your page** — Render a fresh `intentUrl` per order from your server:\n\n```html\n<div id=\"fawaterkDivId\"></div>\n<script src=\"https://app.fawaterk.com/fawaterkPlugin/fawaterkPlugin.js\"></script>\n<script>\n  fawaterkCheckoutV2({\n    envType: \"live\",\n    intentUrl: \"CHECKOUT_URL_FROM_YOUR_SERVER\"\n  });\n</script>\n```\n\nDo not hard-code one checkout link for all orders unless the amount is fixed.\n\n---\n\n## After payment\n\nConfigure **success**, **fail**, and **webhook** URLs (dashboard and/or `redirectionUrls` on each transaction). Mark orders as paid from **webhooks** — do not rely on the customer returning to the success page alone. See **Webhooks** for payload format, verification, and handling.\n\n| envType | Use |\n|---------|-----|\n| `live` | Production |\n| `test` | Staging / sandbox |"
+    },
+    {
+      "name": "Tokenization and recurring",
+      "description": "Tokenization allows you to store card payment details in exchange for a token. The token replaces raw card data in later payment requests, so you can charge the saved card for tokenized or recurring payments without asking for the card details again.\n\n---\n\n## How it works\n\n1. Call `POST /api/v2/createCardTokenScreen` to generate a Fawaterak-hosted card collection URL. Open the URL in an iframe or redirect the customer to it.\n2. After the customer saves the card, Fawaterak creates the token and sends it to your tokenization webhook.\n3. Use the returned `customerCardToken` / token later with `POST /api/v2/createTokenizationPayRequest`.\n\n## Payment types\n\n- **Tokenization payment** — send `tokenAction: \"tokenization\"`; response contains `redirectTo` for the 3DS/authentication flow.\n- **Recurring payment** — do **not** send `tokenAction`; response contains `transaction_id` after successful processing.\n\nThe generated card screen link expires after about **10 minutes**. If the screen expires or saving the card fails, the link cannot be reused.\n\n---\n\n## Created token webhook\n\nWhen a token is created, your webhook receives data similar to:\n\n```json\n{\n  \"customerUniqueId\": \"222111333\",\n  \"customerCard\": \"512345xxxxxx0008\",\n  \"customerCardToken\": \"9731673377207107\",\n  \"hashKey\": \"f59665d4077...ea2\",\n  \"cardBrand\": \"MASTERCARD\",\n  \"cardTokenUniqueId\": \"2345\"\n}\n```\n\nValidate `hashKey` with HMAC SHA256 using your vendor API key:\n\n```php\n$queryParam = \"customerUniqueId=XYZ&customerCardToken=XYZ\";\n$hash = hash_hmac('sha256', $queryParam, 'FAWATERAK_VENDOR_KEY', false);\n```\n\nThese are legacy v2 endpoints protected by `ValidateVendorToken`. Send `Authorization: Bearer {vendor_api_key}` and `Content-Type: application/json`."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Fawaterak sends **server-to-server POST** notifications to **your** endpoints. These are not Fawaterak API routes — implement the handlers on your server and register the URLs in the vendor dashboard (**Integrations**) or per transaction via `redirectionUrls`.\n\n| Webhook | When | Configure URL |\n|---------|------|----------------|\n| **Paid / pending** | Payment succeeds or is pending (Fawry, Aman, …) | `webhookUrl` (per transaction) or dashboard **Webhook** |\n| **Failed** | Card/gateway payment fails | Dashboard **Failed webhook** |\n| **Cancel** | Reference expires or is canceled (Aman, Masary, Meeza, …) | Dashboard **Cancellation webhook** |\n| **Refund** | Refund request is approved | Dashboard **Refund webhook** |\n\nUse **`_json`** in the URL path for **paid** and **failed** webhooks to receive `application/json`; otherwise the body is `application/x-www-form-urlencoded`. **Cancel** and **refund** webhooks are always JSON.\n\nSee the **POST** operations below for request and response examples. Verify `transactionHashKey` on paid webhooks; verify `hashKey` on failed and cancel webhooks."
+    },
+    {
+      "name": "E-Commerce Plugins",
+      "description": "We provide multiple ready-made plugins to accept Fawaterak payments on popular e-commerce platforms.\n\n---\n\n## Plugins\n\n1. **WooCommerce** — [Download the plugin](https://wordpress.org/plugins/fawaterk-for-woocommerce/)\n2. **ExpandCart** — Through our executive partnership with ExpandCart you can create your own store and accept online payments through **Expand Pay**, powered by Fawaterak.\n3. **OpenCart** — Download from the official OpenCart marketplace: [click here](https://www.opencart.com/index.php?route=marketplace/extension/info&extension_id=43750&filter_search=fawaterk&filter_category_id=3)\n4. **Shopify (redirect — all payment methods)** — Log in to **Shopify** and **Fawaterak** in separate tabs, then install: [click here](https://apps.shopify.com/fawaterak)\n5. **Shopify (embedded card payment only)** — Log in to **Shopify** and **Fawaterak** in separate tabs, then install: [click here](https://apps.shopify.com/fawaterak-credit-card)\n6. **WHMCS** — [Download the plugin](https://drive.google.com/drive/folders/111-ZMLJ3LxFMkusaKkXga475E2fUYtOF?usp=sharing)\n7. **CS-Cart** — [Download the plugin](https://drive.google.com/drive/folders/1BCGhzsrMbrMpWB4XY7t0gGniuoy7bj62?usp=sharing)\n8. **Magento** — [Download the plugin](https://drive.google.com/drive/folders/1VhjQfDZ3WbjMZjX8NO4HYQAfEyLLlhOv?usp=sharing)\n\n---\n\n## Important note (Cloudflare)\n\nIf you use **Cloudflare** with the WooCommerce plugin, add a **path-based WAF skip rule** so Fawaterak webhooks are not blocked:\n\n**Security → WAF → Custom Rules**\n\n| Setting | Value |\n|---------|-------|\n| **IF** URI Path equals | `/wc-api/fawaterak_webhook_json` |\n| **THEN** Skip | Browser Integrity Check, Bot Fight Mode, JS Challenge |"
+    },
+    {
+      "name": "Mobile integrations",
+      "description": "Easy integration with your **mobile app** (React Native, Flutter, Kotlin, Java, Swift) using **API v3** and **TR** (cache-based transactions).\n\n---\n\n## Overview\n\nThe mobile flow has two steps:\n\n| Step | Endpoint | Purpose |\n|------|----------|--------|\n| **1** | `GET /api/v3/getTrPaymentmethods` | List enabled payment methods for your account |\n| **2** | `POST /api/v3/createTransaction` | Create a TR intent and pay (direct-dispatch or hosted link) |\n\n---\n\n## Authentication\n\nUse **OAuth client credentials** (not the legacy vendor API key):\n\n1. Create credentials in the vendor dashboard → **Integrations → OAuth client credentials**.\n2. Call `POST /oauth/token` to obtain a Bearer access token.\n3. Send `Authorization: Bearer {access_token}` on all `/api/v3/*` mobile calls.\n\n---\n\n## How payment methods behave\n\n| `redirect` value | Mobile handling |\n|------------------|-----------------|\n| `\"true\"` | **Link mode** — response includes `data.url`; open in a **WebView** / in-app browser |\n| `\"false\"` | **Direct-dispatch** — provider reference or RTP returned synchronously (Fawry, Meeza, …) |\n\n**Important:** Meeza (mobile wallets) is validated with **real payments** in production. Pass `mobileWalletNumber` when required.\n\nMark orders as paid from **webhooks** (`redirectionUrls.webhookUrl`) — see **Webhooks**."
+    },
+    {
+      "name": "Mobile — List payment methods",
+      "description": "**Step 1** — Retrieve payment methods assigned to your vendor account.\n\n**Endpoint:** `GET /api/v3/getTrPaymentmethods`\n\nPresent the `data` array in your app UI. Each item includes `payment_method_id`, localized names, `redirect`, and `logo`.\n\n**Mobile (step 1):** Call this after `POST /oauth/token`. Use `payment_method_id` when calling `createTransaction`. If `redirect` is `\"true\"`, open the returned checkout `url` in a WebView; if `\"false\"`, expect a synchronous provider response from direct-dispatch.\n\n**React Native:**\n```javascript\nconst apiUrl = 'https://app.fawaterk.com/api/v3/getTrPaymentmethods';\nconst accessToken = 'YOUR_OAUTH_ACCESS_TOKEN';\n\nfetch(apiUrl, {\n  method: 'GET',\n  headers: {\n    'Content-Type': 'application/json',\n    Authorization: `Bearer ${accessToken}`,\n  },\n})\n  .then((r) => r.json())\n  .then(console.log)\n  .catch(console.error);\n```\n\n**Kotlin:**\n```kotlin\nval apiUrl = \"https://app.fawaterk.com/api/v3/getTrPaymentmethods\"\nval accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\"\n\nval client = OkHttpClient()\nval request = Request.Builder()\n    .url(apiUrl)\n    .addHeader(\"Content-Type\", \"application/json\")\n    .addHeader(\"Authorization\", \"Bearer $accessToken\")\n    .build()\n\nclient.newCall(request).execute().use { response ->\n    if (response.isSuccessful) {\n        println(response.body?.string())\n    } else {\n        println(\"Request failed: ${response.code}\")\n    }\n}\n```\n\n**Java:**\n```java\nString apiUrl = \"https://app.fawaterk.com/api/v3/getTrPaymentmethods\";\nString accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\";\n\nOkHttpClient client = new OkHttpClient();\nRequest request = new Request.Builder()\n    .url(apiUrl)\n    .addHeader(\"Content-Type\", \"application/json\")\n    .addHeader(\"Authorization\", \"Bearer \" + accessToken)\n    .build();\n\ntry (Response response = client.newCall(request).execute()) {\n    if (response.isSuccessful() && response.body() != null) {\n        System.out.println(response.body().string());\n    } else {\n        System.out.println(\"Request failed: \" + response.code());\n    }\n}\n```\n\n**Swift:**\n```swift\nlet apiUrl = \"https://app.fawaterk.com/api/v3/getTrPaymentmethods\"\nlet accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\"\n\nif let url = URL(string: apiUrl) {\n    var request = URLRequest(url: url)\n    request.setValue(\"application/json\", forHTTPHeaderField: \"Content-Type\")\n    request.setValue(\"Bearer \\(accessToken)\", forHTTPHeaderField: \"Authorization\")\n\n    URLSession.shared.dataTask(with: request) { data, _, error in\n        if let error = error {\n            print(\"Error: \\(error)\")\n            return\n        }\n        if let data = data, let body = String(data: data, encoding: .utf8) {\n            print(body)\n        }\n    }.resume()\n}\n```\n\n**Flutter:**\n```dart\nimport 'dart:convert';\nimport 'package:http/http.dart' as http;\n\nFuture<void> fetchPaymentMethods() async {\n  const apiUrl = 'https://app.fawaterk.com/api/v3/getTrPaymentmethods';\n  const accessToken = 'YOUR_OAUTH_ACCESS_TOKEN';\n\n  final response = await http.get(\n    Uri.parse(apiUrl),\n    headers: {\n      'Content-Type': 'application/json',\n      'Authorization': 'Bearer $accessToken',\n    },\n  );\n  print(json.encode(json.decode(response.body)));\n}\n```"
+    },
+    {
+      "name": "Mobile — Process transaction",
+      "description": "**Step 2** — Create a **TR** transaction and initiate payment on the selected method.\n\n**Endpoint:** `POST /api/v3/createTransaction`\n\nInclude `payment_method_id` from step 1 plus cart/customer fields. Response shape depends on the method:\n\n- **Card / redirect methods** — hosted checkout URL in `data.url` (open in WebView)\n- **Fawry** — direct-dispatch reference code\n- **Meeza** — wallet RTP / reference in provider response\n\nUse `intent_key` from the response to correlate with webhooks and `POST /api/v3/getTransactionData`.\n\n**Mobile (step 2):** Include `payment_method_id` from step 1.\n\n| Mode | When | Mobile action |\n|------|------|---------------|\n| **Link** | `redirect` = `\"true\"` (e.g. Visa/Mastercard) | Open `data.url` in WebView |\n| **Direct-dispatch** | `redirect` = `\"false\"` (e.g. Fawry, Meeza) | Show reference / handle RTP from provider body |\n\n**React Native:**\n```javascript\nconst API_URL = 'https://app.fawaterk.com/api/v3/createTransaction';\nconst accessToken = 'YOUR_OAUTH_ACCESS_TOKEN';\nconst PAYMENT_ID = 4; // from getTrPaymentmethods\n\nfetch(API_URL, {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${accessToken}`,\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    payment_method_id: PAYMENT_ID,\n    cartTotal: '100',\n    currency: 'EGP',\n    customer: {\n      first_name: 'Ahmed',\n      last_name: 'Ali',\n      email: 'ahmed@example.com',\n      phone: '01000000000',\n      address: 'Cairo',\n    },\n    redirectionUrls: {\n      successUrl: 'https://yoursite.com/success',\n      failUrl: 'https://yoursite.com/fail',\n      pendingUrl: 'https://yoursite.com/pending',\n      webhookUrl: 'https://yoursite.com/webhooks/fawaterak_json',\n    },\n    cartItems: [{ name: 'Order total', price: '100', quantity: '1' }],\n  }),\n})\n  .then((r) => r.json())\n  .then(console.log)\n  .catch(console.error);\n```\n\n**Kotlin:**\n```kotlin\nval apiUrl = \"https://app.fawaterk.com/api/v3/createTransaction\"\nval accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\"\nval payment_method_id = 4\n\nval requestData = \"\"\"\n{\"payment_method_id\":$payment_method_id,\"cartTotal\":\"100\",\"currency\":\"EGP\",\n\"customer\":{\"first_name\":\"Ahmed\",\"last_name\":\"Ali\",\"email\":\"ahmed@example.com\",\"phone\":\"01000000000\",\"address\":\"Cairo\"},\n\"redirectionUrls\":{\"successUrl\":\"https://yoursite.com/success\",\"failUrl\":\"https://yoursite.com/fail\",\"pendingUrl\":\"https://yoursite.com/pending\",\"webhookUrl\":\"https://yoursite.com/webhooks/fawaterak_json\"},\n\"cartItems\":[{\"name\":\"Order total\",\"price\":\"100\",\"quantity\":\"1\"}]}\n\"\"\".trimIndent()\n\nval client = OkHttpClient()\nval body = requestData.toRequestBody(\"application/json\".toMediaType())\nval request = Request.Builder()\n    .url(apiUrl)\n    .addHeader(\"Authorization\", \"Bearer $accessToken\")\n    .addHeader(\"Content-Type\", \"application/json\")\n    .post(body)\n    .build()\n\nclient.newCall(request).execute().use { response ->\n    println(if (response.isSuccessful) response.body?.string() else \"Failed: ${response.code}\")\n}\n```\n\n**Java:**\n```java\nString apiUrl = \"https://app.fawaterk.com/api/v3/createTransaction\";\nString accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\";\nint payment_method_id = 4;\n\nString requestData = \"{\\\"payment_method_id\\\":\" + payment_method_id\n    + \",\\\"cartTotal\\\":\\\"100\\\",\\\"currency\\\":\\\"EGP\\\",\"\n    + \"\\\"customer\\\":{\\\"first_name\\\":\\\"Ahmed\\\",\\\"last_name\\\":\\\"Ali\\\",\"\n    + \"\\\"email\\\":\\\"ahmed@example.com\\\",\\\"phone\\\":\\\"01000000000\\\",\\\"address\\\":\\\"Cairo\\\"},\"\n    + \"\\\"redirectionUrls\\\":{\\\"successUrl\\\":\\\"https://yoursite.com/success\\\",\"\n    + \"\\\"failUrl\\\":\\\"https://yoursite.com/fail\\\",\\\"pendingUrl\\\":\\\"https://yoursite.com/pending\\\",\"\n    + \"\\\"webhookUrl\\\":\\\"https://yoursite.com/webhooks/fawaterak_json\\\"},\"\n    + \"\\\"cartItems\\\":[{\\\"name\\\":\\\"Order total\\\",\\\"price\\\":\\\"100\\\",\\\"quantity\\\":\\\"1\\\"}]}\";\n\nOkHttpClient client = new OkHttpClient();\nRequestBody body = RequestBody.create(requestData, MediaType.get(\"application/json\"));\nRequest request = new Request.Builder()\n    .url(apiUrl)\n    .addHeader(\"Authorization\", \"Bearer \" + accessToken)\n    .addHeader(\"Content-Type\", \"application/json\")\n    .post(body)\n    .build();\n\ntry (Response response = client.newCall(request).execute()) {\n    if (response.body() != null) {\n        System.out.println(response.body().string());\n    }\n}\n```\n\n**Swift:**\n```swift\nlet apiUrl = \"https://app.fawaterk.com/api/v3/createTransaction\"\nlet accessToken = \"YOUR_OAUTH_ACCESS_TOKEN\"\nlet payment_method_id = 4\n\nlet requestData = \"\"\"\n{\"payment_method_id\":\\(payment_method_id),\"cartTotal\":\"100\",\"currency\":\"EGP\",\n\"customer\":{\"first_name\":\"Ahmed\",\"last_name\":\"Ali\",\"email\":\"ahmed@example.com\",\"phone\":\"01000000000\",\"address\":\"Cairo\"},\n\"redirectionUrls\":{\"successUrl\":\"https://yoursite.com/success\",\"failUrl\":\"https://yoursite.com/fail\",\"pendingUrl\":\"https://yoursite.com/pending\",\"webhookUrl\":\"https://yoursite.com/webhooks/fawaterak_json\"},\n\"cartItems\":[{\"name\":\"Order total\",\"price\":\"100\",\"quantity\":\"1\"}]}\n\"\"\"\n\nif let url = URL(string: apiUrl) {\n    var request = URLRequest(url: url)\n    request.httpMethod = \"POST\"\n    request.setValue(\"application/json\", forHTTPHeaderField: \"Content-Type\")\n    request.setValue(\"Bearer \\(accessToken)\", forHTTPHeaderField: \"Authorization\")\n    request.httpBody = requestData.data(using: .utf8)\n\n    URLSession.shared.dataTask(with: request) { data, _, error in\n        if let data = data, let body = String(data: data, encoding: .utf8) {\n            print(body)\n        }\n    }.resume()\n}\n```\n\n**Flutter:**\n```dart\nimport 'dart:convert';\nimport 'package:http/http.dart' as http;\n\nFuture<void> createTransaction() async {\n  const apiUrl = 'https://app.fawaterk.com/api/v3/createTransaction';\n  const accessToken = 'YOUR_OAUTH_ACCESS_TOKEN';\n  const payment_method_id = 4;\n\n  final requestData = {\n    'payment_method_id': payment_method_id,\n    'cartTotal': '100',\n    'currency': 'EGP',\n    'customer': {\n      'first_name': 'Ahmed',\n      'last_name': 'Ali',\n      'email': 'ahmed@example.com',\n      'phone': '01000000000',\n      'address': 'Cairo',\n    },\n    'redirectionUrls': {\n      'successUrl': 'https://yoursite.com/success',\n      'failUrl': 'https://yoursite.com/fail',\n      'pendingUrl': 'https://yoursite.com/pending',\n      'webhookUrl': 'https://yoursite.com/webhooks/fawaterak_json',\n    },\n    'cartItems': [\n      {'name': 'Order total', 'price': '100', 'quantity': '1'},\n    ],\n  };\n\n  final response = await http.post(\n    Uri.parse(apiUrl),\n    headers: {\n      'Authorization': 'Bearer $accessToken',\n      'Content-Type': 'application/json',\n    },\n    body: json.encode(requestData),\n  );\n  print(json.encode(json.decode(response.body)));\n}\n```\n\n**Link mode (default):** returns hosted URLs (`/transactions/{intent_key}`).\n\n**Direct-dispatch:** when `payment_method_id` has `apiRedirect = \"false\"` and no `resource` / truthy `redirectOption`, returns provider response synchronously."
+    },
+    {
+      "name": "Refund APIs",
+      "description": "Manage refund requests for paid transactions via **OAuth client credentials**.\n\n**Legacy v2:** Existing integrations may continue using `/api/v2/refund/*` with the vendor API key (`ValidateVendorToken`). Those routes are unchanged.\n\n**Flow (v3):**\n1. `POST /api/v3/refund/refundTypes` — get `refund_type` keys (`0` = invoice, `1` = payment link transaction, `2` = collection link transaction).\n2. `POST /api/v3/refund/refundReasons` — list allowed refund reasons.\n3. `POST /api/v3/refund/create` — submit a refund using `refund_type` + `refund_id` (invoice id or payment-request transaction id).\n4. `POST /api/v3/refund/index` / `GET /api/v3/refund/details/{id}` — list and inspect requests.\n5. `POST /api/v3/refund/delete` — cancel a pending (non-approved) request.\n\nRequires `Authorization: Bearer {access_token}` from `POST /oauth/token`."
+    },
+    {
+      "name": "Payment operations",
+      "description": "Capture or void card payments (auth-and-capture) via **OAuth client credentials**.\n\n| Endpoint | Purpose |\n|----------|--------|\n| `POST /api/v3/payment/capture` | Capture (settle) an authorized hold — full or partial |\n| `POST /api/v3/payment/void` | Void an **authorized** hold (not a captured payment) |\n\n**Capture identity:** `type=transaction` uses `intent_key` from createTransaction / webhook / redirect; `type=invoice` uses `transaction_id` (invoice id).\n\n**Void identity:** `type=transaction` uses `intent_key` from createTransaction / webhook / redirect; `type=invoice` uses `transaction_id` (invoice id).\n\n**Responses** use `status`, `message`, and `data` (identity fields plus merchant `pay_load` from create).\n\n**Legacy:** `/api/v2/bank/createCapture` and `/api/v2/bank/createVoid` remain for vendor-token clients and are unchanged.\n\nRequires `Authorization: Bearer {access_token}` from `POST /oauth/token`."
+    },
+    {
+      "name": "Overview",
+      "description": "E-invoicing lets you create an invoice and share it with your customers via **email**, **SMS**, or **manually** (copy the payment link). The customer can pay the invoice at **any time within the due date** (if a due date is set), and can **try multiple payment methods** for the same invoice link until the payment succeeds.\n\nInvoices are persisted in the `invoices` table with `create_source = API.v3.EI.IN` and return a hosted payment link (`/in/{invoice_key}`).\n\nRequires `Authorization: Bearer {access_token}` from `POST /oauth/token`."
+    },
+    {
+      "name": "E-invoicing",
+      "description": "Create and manage **e-invoices** via OAuth client credentials. Invoices are persisted in the `invoices` table with `create_source = API.v3.EI.IN`. Returns a hosted payment link (`/in/{invoice_key}`) for the customer to pay.\n\nRequires `Authorization: Bearer {access_token}` from `POST /oauth/token`."
+    },
+    {
+      "name": "Test cards",
+      "description": "Use these **sandbox / test** card numbers when testing **Mastercard**, **Visa**, and **Meeza** flows on staging or in test mode.\n\n---\n\n## Cards that always return a **successful** transaction\n\n| Brand | Card number | Card holder name | Expiry date | CSV |\n|-------|-------------|------------------|-------------|-----|\n| **Mastercard** | `5123450000000008` | Fawaterak test | 12/26 | 100 |\n| **Visa** | `4005 5500 0000 0001` | Fawaterak test | 12/26 | 100 |\n| **Meeza** | `5078 0362 4660 0381` | Fawaterak test | 12/26 | 100 |\n\n---\n\n## Cards that always return a **failed** transaction\n\n| Brand | Card number | Card holder name | Expiry date | CSV |\n|-------|-------------|------------------|-------------|-----|\n| **Mastercard** | `5543474002249996` | Fawaterak test | 05/26 | 123 |\n| **Visa** | `4222 0000 0672 4235` | Fawaterak test | 12/26 | 123 |\n| **Meeza** | `5078 0362 4278 3546` | Fawaterak test | 12/26 | 123 |\n\n---\n\n**Note:** Use your **staging** environment (`https://staging.fawaterk.com`) or test credentials when exercising these cards. Do not use test card numbers in production."
+    }
+  ],
+  "paths": {
+    "/oauth/token": {
+      "post": {
+        "tags": [
+          "Auth token"
+        ],
+        "summary": "Obtain access token (client credentials)",
+        "description": "Exchange the **client ID** and **client secret** (vendor dashboard → Integrations → OAuth client credentials) for a Bearer access token used on `/api/v3/*` OAuth-protected endpoints.\n\nWhen refresh tokens are enabled for your OAuth client, the response also includes `refresh_token`. Store it securely and use **Refresh access token** to renew access without repeating the full client-credentials exchange.",
+        "operationId": "oauthToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthClientCredentialsRequest"
+              },
+              "example": {
+                "grant_type": "client_credentials",
+                "client_id": "9d4e2c1a-b3f5-4e8a-9c1d-2a3b4c5d6e7f",
+                "client_secret": "YOUR_CLIENT_SECRET"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthClientCredentialsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTokenResponse"
+                },
+                "example": {
+                  "token_type": "Bearer",
+                  "expires_in": 31536000,
+                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
+                  "refresh_token": "def50200a1b2c3d4e5f6..."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTokenErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/token#refresh": {
+      "post": {
+        "tags": [
+          "Auth token"
+        ],
+        "summary": "Refresh access token",
+        "description": "Exchange a valid **refresh token** (from a previous `client_credentials` token response) for a new Bearer access token.\n\nSend the same **client ID** and **client secret** that were used to obtain the refresh token. A new `refresh_token` is returned when token rotation is enabled — replace the stored value with the new one.",
+        "operationId": "oauthRefreshToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthRefreshTokenRequest"
+              },
+              "example": {
+                "grant_type": "refresh_token",
+                "refresh_token": "def50200a1b2c3d4e5f6...",
+                "client_id": "9d4e2c1a-b3f5-4e8a-9c1d-2a3b4c5d6e7f",
+                "client_secret": "YOUR_CLIENT_SECRET"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthRefreshTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New access token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTokenResponse"
+                },
+                "example": {
+                  "token_type": "Bearer",
+                  "expires_in": 31536000,
+                  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
+                  "refresh_token": "def5020098fedcba..."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired, or revoked refresh token, or client authentication failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTokenErrorResponse"
+                },
+                "example": {
+                  "error": "invalid_grant",
+                  "error_description": "The refresh token is invalid.",
+                  "message": "The refresh token is invalid."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/createCardTokenScreen": {
+      "post": {
+        "tags": [
+          "Tokenization and recurring"
+        ],
+        "summary": "Create card data screen",
+        "description": "Generates a Fawaterak-hosted URL containing the collect-card-data form. Use it in an iframe or redirect the customer to it. The link expires after about 10 minutes.",
+        "operationId": "createCardTokenScreen",
+        "security": [
+          {
+            "vendorApiKeyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCardTokenScreenRequest"
+              },
+              "example": {
+                "deduct_total_amount": true,
+                "order": {
+                  "cartTotal": 100,
+                  "currency": "EGP",
+                  "cartItems": [
+                    {
+                      "name": "order total",
+                      "price": 100,
+                      "quantity": 1
+                    }
+                  ]
+                },
+                "customerData": {
+                  "customer_unique_id": "222111333",
+                  "customer_first_name": "Fname",
+                  "customer_last_name": "Lname",
+                  "customer_email": "customer@example.com",
+                  "customer_phone": "01111111111"
+                },
+                "redirectionUrls": {
+                  "success_url": "https://domain.com/success",
+                  "fail_url": "https://domain.com/fail",
+                  "webhook_url": "https://domain.com/token-webhook"
+                },
+                "allowedCardTypes": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCardTokenScreenResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "redirectUrl": "https://staging.fawaterk.com/nbe/storeToken/19941166e94728a4ad6ef3b19e6bfbe31f96bcacfb6f4b4b3804"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/createTokenizationPayRequest": {
+      "post": {
+        "tags": [
+          "Tokenization and recurring"
+        ],
+        "summary": "Pay with tokenization",
+        "description": "Processes a saved-card payment when `tokenAction: \"tokenization\"` is present. This flow returns a `redirectTo` URL for 3DS/authentication.",
+        "operationId": "createTokenizationPaymentRequest",
+        "security": [
+          {
+            "vendorApiKeyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenizationPayTokenizationRequest"
+              },
+              "example": {
+                "tokenAction": "tokenization",
+                "order": {
+                  "amount": "10",
+                  "currency": "USD"
+                },
+                "payload": {
+                  "merchant_reference": "123",
+                  "trasaction_data": "transaction data"
+                },
+                "customerData": {
+                  "customer_token": "8lvfHBZC3n7lmTRO"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenizationRedirectResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "redirectTo": "https://staging.fawaterk.com/mpgs/eyJpdiI6InZNTkN6NjhORHVOM29xQ3NxRmt4cUE9PSIsInZhbHVlIjoieHI2ZDhBTzIyQ1ZnZGMyd001TnM3dz09IiwibWFjIjoiODdkNDYwZTg4ODdmMmQ3YTc5Y2VlZGI2ZTcyNmQ5MWQ0YTg3MDkzNzYyNzE5YWQwNzlkZDgzYzhmY2JjMDM4NiIsInRhZyI6IiJ9/auth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/createTokenizationPayRequest#recurring": {
+      "post": {
+        "tags": [
+          "Tokenization and recurring"
+        ],
+        "summary": "Pay with recurring",
+        "description": "Processes a recurring saved-card payment when `tokenAction` is not sent. This flow returns a successful `transaction_id` when payment is captured.",
+        "operationId": "createRecurringPayRequest",
+        "security": [
+          {
+            "vendorApiKeyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenizationPayRecurringRequest"
+              },
+              "example": {
+                "order": {
+                  "amount": "1000",
+                  "currency": "EGP"
+                },
+                "customerData": {
+                  "customer_token": "UFZiaC98572rKZGZ"
+                },
+                "payload": {
+                  "merchant_reference": "123",
+                  "trasaction_data": "transaction data"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringPayResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "transaction_id": 1011767
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/deleteCustomerToken": {
+      "post": {
+        "tags": [
+          "Tokenization and recurring"
+        ],
+        "summary": "Delete customer token",
+        "description": "Deletes a saved customer card token.",
+        "operationId": "deleteCustomerToken",
+        "security": [
+          {
+            "vendorApiKeyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCustomerTokenRequest"
+              },
+              "example": {
+                "customerUniqueId": "222111333",
+                "cardTokenUniqueId": "2345"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessageResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "message": "token deleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/getTrPaymentmethods": {
+      "get": {
+        "tags": [
+          "API integration",
+          "Mobile — List payment methods"
+        ],
+        "summary": "List payment methods",
+        "description": "Returns integration-enabled payment methods for the vendor linked to the OAuth client.\n\n **Important hint:** This API list the payment options has \"Integration status\" enabled in - Business settings > Payment method.\n\nCall after `POST /oauth/token` with `Authorization: Bearer {access_token}`. Use each item's `payment_method_id` as `payment_method_id` when calling `createTransaction`.\n\n| `redirect`    | Behavior |\n|------------|----------|\n| `\"true\"` | **Link mode** — customer completes payment on hosted checkout (`data.url` from createTransaction) |\n| `\"false\"` | **Direct-dispatch** — provider reference or RTP returned synchronously from createTransaction |",
+        "operationId": "getTrPaymentmethods",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment methods list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorPaymentMethodsSuccess"
+                },
+                "example": {
+                  "status": "success",
+                  "vendorSettingsData": {
+                    "custome_iframe_title": null
+                  },
+                  "data": [
+                    {
+                      "payment_method_id": 2,
+                      "name_en": "Visa-Mastercard",
+                      "name_ar": "فيزا -ماستر كارد",
+                      "redirect": "true",
+                      "logo": "https://app.fawaterk.com/clients/payment_options/mastercard-visa.png",
+                      "commission_on_customer": 2,
+                      "integration_status": 1
+                    },
+                    {
+                      "payment_method_id": 3,
+                      "name_en": "Fawry",
+                      "name_ar": "فوري",
+                      "redirect": "false",
+                      "logo": "https://app.fawaterk.com/clients/payment_options/fawry.png",
+                      "commission_on_customer": 2,
+                      "integration_status": 1
+                    },
+                    {
+                      "payment_method_id": 4,
+                      "name_en": "Meeza",
+                      "name_ar": "ميزا",
+                      "redirect": "false",
+                      "logo": "https://app.fawaterk.com/clients/payment_options/MeezaDigitalSmall.png",
+                      "commission_on_customer": 1,
+                      "integration_status": 1
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/createTransaction": {
+      "post": {
+        "tags": [
+          "API integration",
+          "Mobile — Process transaction"
+        ],
+        "summary": "Create transaction",
+        "description": "> **Transaction types:**\n> - **Hosted checkout:** do **not** send `payment_method_id`. This creates a transaction link and returns a hosted checkout URL in `data.url`.\n> - **Direct payment:** send `payment_method_id`. This initiates payment directly using that specific payment method and returns the method response in `data.payment_data`.\n\nCreates a **TR** payment intent. No `transactions` row until the customer pays or **direct-dispatch** runs.\n\nUse `payment_method_id` from `getTrPaymentmethods` only when you want to initiate payment with a specific payment method.\n\n| Mode | When | Action |\n|------|------|--------|\n| **Hosted checkout** | No `payment_method_id` | Create a transaction link and redirect the customer to `data.url` hosted checkout. |\n| **Direct payment** | `payment_method_id` is provided | Pay/initiate the transaction using that selected method and return `data.payment_data`. |\n\n**Hosted checkout (default):** returns hosted URLs (`/transactions/{intent_key}`).\n\n**Direct-dispatch:** when `payment_method_id` has `apiRedirect = \"false\"` and no `resource` / truthy `redirectOption`, returns provider response synchronously inside `data.payment_data`.",
+        "operationId": "createTransaction",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currency",
+                  "customer",
+                  "cartItems",
+                  "cartTotal"
+                ],
+                "properties": {
+                  "payment_method_id": {
+                    "type": "integer",
+                    "description": "Preselects method on hosted checkout; may trigger direct-dispatch when eligible.",
+                    "x-order": 1
+                  },
+                  "mobileWalletNumber": {
+                    "type": "string",
+                    "description": "Provider-specific field (e.g. Meeza direct-dispatch).",
+                    "x-order": 1.5
+                  },
+                  "cartTotal": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "Total transaction amount before optional shipping, tax, and discount adjustments.",
+                    "x-order": 2
+                  },
+                  "currency": {
+                    "type": "string",
+                    "description": "ISO currency code. `SAR` is stored as `SR`.",
+                    "x-order": 3
+                  },
+                  "save_customer": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When `true`, the customer is saved to your customers list (and linked to the transaction) at the time the transaction row is created. Defaults to `false` for transactions. When `true`, `customer.customer_unique_id` is required.",
+                    "x-order": 3.5
+                  },
+                  "customer": {
+                    "type": "object",
+                    "required": [
+                      "first_name",
+                      "last_name"
+                    ],
+                    "properties": {
+                      "first_name": {
+                        "type": "string",
+                        "description": "Customer first name."
+                      },
+                      "last_name": {
+                        "type": "string",
+                        "description": "Customer last name."
+                      },
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "description": "Customer email address."
+                      },
+                      "phone": {
+                        "type": "string",
+                        "description": "Customer phone number."
+                      },
+                      "address": {
+                        "type": "string",
+                        "description": "Customer address."
+                      },
+                      "customer_number": {
+                        "type": "string",
+                        "description": "Merchant customer number."
+                      },
+                      "customer_unique_id": {
+                        "type": "string",
+                        "description": "Customer id at your system. Required when `save_customer` is `true`."
+                      }
+                    },
+                    "description": "Customer details for the transaction.",
+                    "x-order": 4
+                  },
+                  "cartItems": {
+                    "type": "array",
+                    "description": "One or more cart items included in the transaction.",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "price",
+                        "quantity"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "Item name."
+                        },
+                        "price": {
+                          "type": "number",
+                          "format": "float",
+                          "description": "Item unit price."
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Item quantity. Minimum `1`."
+                        }
+                      }
+                    },
+                    "x-order": 5
+                  },
+                  "pay_load": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Opaque merchant JSON payload stored as `pay_load` and returned in webhooks.",
+                    "x-order": 6
+                  },
+                  "redirectionUrls": {
+                    "type": "object",
+                    "properties": {
+                      "successUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Customer redirect after successful payment."
+                      },
+                      "failUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Customer redirect after failed payment."
+                      },
+                      "pendingUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Customer redirect when payment is pending (async methods)."
+                      },
+                      "backUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Customer redirect when they choose not to proceed with payment or need to go back to edit the order. Used as the hosted checkout back/cancel link."
+                      },
+                      "webhookUrl": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Server webhook URL for this transaction. Overrides the vendor dashboard default. Use `_json` in the path for JSON body delivery."
+                      }
+                    },
+                    "description": "Customer redirect URLs, optional back/cancel URL, and optional per-transaction webhook URL.",
+                    "x-order": 7
+                  },
+                  "sendEmail": {
+                    "type": "boolean",
+                    "description": "When true, sends the hosted checkout link to the customer email when available.",
+                    "x-order": 8
+                  },
+                  "sendSMS": {
+                    "type": "boolean",
+                    "description": "When true, sends the hosted checkout link to the customer phone number when available and SMS sending is enabled.",
+                    "x-order": 9
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Defaults to +2 days from request time.",
+                    "x-order": 10
+                  },
+                  "tr_number": {
+                    "type": "string",
+                    "description": "Merchant-visible transaction number.",
+                    "x-order": 11
+                  },
+                  "redirectOption": {
+                    "type": "boolean",
+                    "description": "When true, forces link mode even if direct-dispatch would otherwise apply.",
+                    "x-order": 12
+                  },
+                  "authAndCapture": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ],
+                    "description": "Enable auth-and-capture on supported card flows.",
+                    "x-order": 13
+                  },
+                  "taxData": {
+                    "type": "object",
+                    "required": [
+                      "title",
+                      "value"
+                    ],
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "description": "Tax title."
+                      },
+                      "value": {
+                        "type": "number",
+                        "description": "Percentage tax applied at TR creation."
+                      }
+                    },
+                    "description": "Tax data applied at TR creation.",
+                    "x-order": 14
+                  },
+                  "discountData": {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "value"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "pcg",
+                          "literal"
+                        ],
+                        "description": "Discount type: percentage (`pcg`) or fixed amount (`literal`)."
+                      },
+                      "value": {
+                        "type": "number",
+                        "description": "Discount value."
+                      }
+                    },
+                    "description": "Discount data applied at TR creation.",
+                    "x-order": 15
+                  },
+                  "list_style": {
+                    "type": "string",
+                    "enum": [
+                      "h",
+                      "v"
+                    ],
+                    "default": "h",
+                    "description": "Payment-method list layout on hosted checkout: `h` horizontal (default), `v` vertical.",
+                    "x-order": 16
+                  },
+                  "lang": {
+                    "type": "string",
+                    "default": "en",
+                    "description": "Appended as `?lg=` on returned URLs when provided.",
+                    "x-order": 17
+                  }
+                }
+              },
+              "example": {
+                "payment_method_id": 3,
+                "cartTotal": 100,
+                "currency": "EGP",
+                "customer": {
+                  "first_name": "Ahmed",
+                  "last_name": "Ali",
+                  "email": "ahmed@example.com",
+                  "phone": "01000000000",
+                  "address": "Cairo",
+                  "customer_number": "CUST-1001",
+                  "customer_unique_id": "user_12345"
+                },
+                "cartItems": [
+                  {
+                    "name": "Order total",
+                    "price": 100,
+                    "quantity": 1
+                  }
+                ],
+                "pay_load": {
+                  "order_id": "ORD-1001",
+                  "customer_reference": "CUST-1001"
+                },
+                "redirectionUrls": {
+                  "successUrl": "https://yoursite.com/success",
+                  "failUrl": "https://yoursite.com/fail",
+                  "pendingUrl": "https://yoursite.com/pending",
+                  "backUrl": "https://yoursite.com/checkout",
+                  "webhookUrl": "https://yoursite.com/webhooks/fawaterak_json"
+                },
+                "sendEmail": true,
+                "sendSMS": false,
+                "due_date": "2026-06-06T12:00:00Z",
+                "tr_number": "TR-1001",
+                "redirectOption": false,
+                "authAndCapture": 0,
+                "taxData": {
+                  "title": "VAT",
+                  "value": 14
+                },
+                "discountData": {
+                  "type": "pcg",
+                  "value": 10
+                },
+                "list_style": "h",
+                "lang": "en",
+                "mobileWalletNumber": "01000000000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction link created. Response shape depends on whether `payment_method_id` is provided.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "title": "Hosted checkout response",
+                      "required": [
+                        "status",
+                        "message",
+                        "data"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "success"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Transaction link created"
+                        },
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "intent_key",
+                            "url",
+                            "expires_in"
+                          ],
+                          "properties": {
+                            "intent_key": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "expires_in": {
+                              "type": "integer",
+                              "example": 2592000
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "title": "Direct payment response",
+                      "required": [
+                        "status",
+                        "message",
+                        "data"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "success"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Transaction link created"
+                        },
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "intent_key",
+                            "expires_in",
+                            "payment_data"
+                          ],
+                          "properties": {
+                            "intent_key": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "expires_in": {
+                              "type": "integer",
+                              "example": 2592000
+                            },
+                            "payment_data": {
+                              "description": "Payment method response. Shape depends on the selected payment method.",
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "title": "Card payment data",
+                                  "required": [
+                                    "redirectTo"
+                                  ],
+                                  "properties": {
+                                    "redirectTo": {
+                                      "type": "string",
+                                      "format": "uri"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "title": "Fawry / Aman / Masary payment data",
+                                  "required": [
+                                    "referenceNumber",
+                                    "expireDate",
+                                    "expirationTime"
+                                  ],
+                                  "properties": {
+                                    "referenceNumber": {
+                                      "type": "string",
+                                      "description": "Payment reference code for the customer to pay at Fawry, Aman, or Masary."
+                                    },
+                                    "expireDate": {
+                                      "type": "string",
+                                      "example": "2021-07-06 15:53:41",
+                                      "description": "Reference expiry date/time."
+                                    },
+                                    "expirationTime": {
+                                      "type": "string",
+                                      "example": "2021-07-06 15:53:41",
+                                      "description": "Reference expiry date/time (same value as `expireDate`)."
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "title": "Mobile wallet payment data",
+                                  "required": [
+                                    "systemReference",
+                                    "isoQr"
+                                  ],
+                                  "properties": {
+                                    "systemReference": {
+                                      "type": "string",
+                                      "description": "Meeza wallet system reference for the RTP request."
+                                    },
+                                    "isoQr": {
+                                      "type": "string",
+                                      "description": "ISO QR payload for wallet scan-to-pay."
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "without_payment_method_id": {
+                    "summary": "Without payment_method_id — hosted transaction link",
+                    "value": {
+                      "status": "success",
+                      "message": "Transaction link created",
+                      "data": {
+                        "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                        "url": "https://app.fawaterk.com/ts/a1b2c",
+                        "expires_in": 2592000
+                      }
+                    }
+                  },
+                  "direct_payment_card": {
+                    "summary": "Direct payment — Card",
+                    "value": {
+                      "status": "success",
+                      "message": "Transaction link created",
+                      "data": {
+                        "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                        "expires_in": 2592000,
+                        "payment_data": {
+                          "redirectTo": "https://staging.fawaterk.com/link/I0PAH"
+                        }
+                      }
+                    }
+                  },
+                  "direct_payment_fawry": {
+                    "summary": "Direct payment — Fawry / Aman / Masary",
+                    "value": {
+                      "status": "success",
+                      "message": "Transaction link created",
+                      "data": {
+                        "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                        "expires_in": 2592000,
+                        "payment_data": {
+                          "referenceNumber": "981335305",
+                          "expireDate": "2021-07-06 15:53:41",
+                          "expirationTime": "2021-07-06 15:53:41"
+                        }
+                      }
+                    }
+                  },
+                  "direct_payment_mobile_wallet": {
+                    "summary": "Direct payment — Mobile wallet",
+                    "value": {
+                      "status": "success",
+                      "message": "Transaction link created",
+                      "data": {
+                        "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                        "expires_in": 2592000,
+                        "payment_data": {
+                          "systemReference": "4266311",
+                          "isoQr": "00020101021226330016A00000073210000101096100559795204152053038185406106"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "Unable to resolve vendor from OAuth client"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Transaction intent cache unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/getTransactionData": {
+      "post": {
+        "tags": [
+          "API integration"
+        ],
+        "summary": "Get transaction data",
+        "description": "Returns the current TR transaction details for the vendor linked to the OAuth client using `intent_key`. Cache-only intents and persisted transaction rows are both supported.",
+        "operationId": "getTransactionData",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetTransactionDataRequest"
+              },
+              "example": {
+                "intent_key": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionDataSuccess"
+                },
+                "example": {
+                  "status": "success",
+                  "data": {
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "transaction_id": 12345,
+                    "customer_email": "ahmed@example.com",
+                    "commission": 2.5,
+                    "transaction_created_at": "2026-06-06 12:00:00",
+                    "paid": 1,
+                    "paid_at": "2026-06-06 12:05:00",
+                    "status_text": "paid",
+                    "total": 100,
+                    "currency": "EGP",
+                    "payment_method": "Fawry",
+                    "pay_load": {
+                      "order_id": "ORD-1001"
+                    },
+                    "due_date": "2026-06-08 12:00:00",
+                    "transaction_link": "https://app.fawaterk.com/transactions/550e8400-e29b-41d4-a716-446655440000",
+                    "transaction_history": [
+                      {
+                        "method": {
+                          "name": "Fawry",
+                          "logo": "https://app.fawaterk.com/clients/payment_options/fawry.png"
+                        },
+                        "amount": "100.00 EGP",
+                        "currency": "EGP",
+                        "status": "success",
+                        "reference": "981335305",
+                        "date": "2026-06-06 12:05:00"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid intent_key or transaction not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/getTransactionsData": {
+      "get": {
+        "tags": [
+          "API integration"
+        ],
+        "summary": "List transactions",
+        "description": "Date-range paginated export of persisted TR rows. Similar to v2 `getInvoicesData`.",
+        "operationId": "getTransactionsData",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-31"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 15
+            }
+          },
+          {
+            "name": "pay_load",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional substring filter on merchant `pay_load`."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction export page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTransactionsDataSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (missing/invalid dates)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/createEinvoice": {
+      "post": {
+        "tags": [
+          "E-invoicing"
+        ],
+        "summary": "Create e-invoice",
+        "description": "Creates a new e-invoice in the `invoices` table with `create_source = API.v3.EI.IN` and returns a hosted payment link.",
+        "operationId": "createEinvoice",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEinvoiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "E-invoice created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateEinvoiceSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/invoice/index": {
+      "post": {
+        "tags": [
+          "E-invoicing"
+        ],
+        "summary": "List e-invoices",
+        "description": "Paginated list of e-invoices created via this API (`create_source = API.v3.EI.IN`) for the authenticated vendor.",
+        "operationId": "listEinvoices",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListEinvoicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "E-invoice list page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEinvoicesSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/invoice/get": {
+      "post": {
+        "tags": [
+          "E-invoicing"
+        ],
+        "summary": "Get e-invoice",
+        "description": "Returns full details for a single e-invoice owned by the authenticated vendor.",
+        "operationId": "getEinvoice",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EinvoiceIdRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "E-invoice details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEinvoiceSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invoice not found or validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/invoice/update": {
+      "post": {
+        "tags": [
+          "E-invoicing"
+        ],
+        "summary": "Update e-invoice",
+        "description": "Updates an existing e-invoice. When `hasHistory` is not set, `currency` and `products` are required and line items are replaced.",
+        "operationId": "updateEinvoice",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEinvoiceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "E-invoice updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEinvoiceSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invoice not found or validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/invoice/delete": {
+      "post": {
+        "tags": [
+          "E-invoicing"
+        ],
+        "summary": "Delete e-invoice",
+        "description": "Soft-deletes an unpaid e-invoice after verifying no active payment references block deletion.",
+        "operationId": "deleteEinvoice",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EinvoiceIdRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "E-invoice deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteEinvoiceSuccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invoice not found or cannot be deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/index": {
+      "post": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "List refund requests",
+        "description": "Returns a paginated list of refund requests for the vendor linked to the OAuth client (10 per page).",
+        "operationId": "listRefundRequests",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated refund requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/details/{id}": {
+      "get": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "Get refund request details",
+        "operationId": "getRefundDetails",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Refund request id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Refund request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/refundTypes": {
+      "post": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "List refund types",
+        "description": "Returns refund type keys used as `refund_type` when creating a refund.\n\n| Key | Meaning |\n|-----|--------|\n| `0` | Invoice |\n| `1` | Payment link transaction |\n| `2` | Collection link transaction |\n| `3` | Integration transaction |\n\nPass optional `lang` (`en` / `ar`) to localize labels.",
+        "operationId": "getRefundTypes",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "en",
+                      "ar"
+                    ],
+                    "example": "en"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "data"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "success"
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "description": "Map of refund_type key → label. Keys are stringified integers: `0` = invoice, `1` = payment link transaction, `2` = collection link transaction, `3` = integration transaction.",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": "success",
+                  "data": {
+                    "0": "invoice",
+                    "1": "Payment link transaction",
+                    "2": "Collection link transaction",
+                    "3": "Integration transaction"
+                  }
+                },
+                "examples": {
+                  "refundTypes": {
+                    "summary": "Refund types",
+                    "value": {
+                      "status": "success",
+                      "data": {
+                        "0": "invoice",
+                        "1": "Payment link transaction",
+                        "2": "Collection link transaction",
+                        "3": "Integration transaction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/refundReasons": {
+      "post": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "List refund reasons",
+        "description": "Returns allowed refund reason strings. Pass `lang: \"ar\"` for Arabic labels.",
+        "operationId": "getRefundReasons",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "en",
+                      "ar"
+                    ],
+                    "example": "en"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund reasons",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundReasonsResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "data": [
+                    "Product not available",
+                    "Customer changed their mind",
+                    "Incorrect product delivered",
+                    "Other"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/create": {
+      "post": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "Create refund request",
+        "description": "Submit a refund for a paid transaction.\n\n**`refund_type`** — from `POST /api/v3/refund/refundTypes` (`0` = invoice, `1` = payment link transaction, `2` = collection link transaction, `3` = integration transaction).\n\n**`refund_id`** — the id of the invoice or payment-request transaction to refund (must belong to your vendor account).\n\n**`refundable_amount`** — partial or full amount; must not exceed the remaining refundable balance.\n\n**`reason`** — one of the strings from `POST /api/v3/refund/refundReasons`.",
+        "operationId": "createRefundRequest",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRefundRequest"
+              },
+              "example": {
+                "refund_type": "0",
+                "refund_id": 12345,
+                "reason": "Customer changed their mind",
+                "refundable_amount": 50,
+                "comment": "Partial refund for order #1001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessageResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "message": "Refunded successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refund rejected or validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/refund/delete": {
+      "post": {
+        "tags": [
+          "Refund APIs"
+        ],
+        "summary": "Delete (cancel) refund request",
+        "description": "Deletes a **pending** refund request. Approved refunds cannot be deleted.",
+        "operationId": "deleteRefundRequest",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRefundRequest"
+              },
+              "example": {
+                "refund_id": 42
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund request deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request not found or already approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/payment/capture": {
+      "post": {
+        "tags": [
+          "Payment operations"
+        ],
+        "summary": "Capture authorized payment",
+        "description": "Capture (settle) an authorized card hold.\n\nUse after creating a transaction/invoice with auth-and-capture enabled. The payment must be in a waiting-capture (or partial-capture) state.\n\n**Identity:**\n- `type=transaction` — send `intent_key` from `createTransaction` / webhook / redirect (do **not** send `transaction_id`)\n- `type=invoice` — send `transaction_id` (invoice id)\n\n**`amount`** — optional; omit to capture the remaining authorized amount (partial capture supported when available).",
+        "operationId": "capturePayment",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CapturePaymentRequest"
+              },
+              "examples": {
+                "transaction": {
+                  "summary": "Capture TR authorization",
+                  "value": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "amount": 150.5
+                  }
+                },
+                "invoice": {
+                  "summary": "Capture invoice authorization (full remaining)",
+                  "value": {
+                    "type": "invoice",
+                    "transaction_id": 67890
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capture succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoidPaymentResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "message": "transaction captured",
+                  "data": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "amount": 150.5,
+                    "pay_load": {
+                      "order_id": "ORD-1001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Capture rejected by business rules or gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoidPaymentResponse"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "can not capture transaction",
+                  "data": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "amount": 150.5,
+                    "pay_load": {
+                      "order_id": "ORD-1001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOperationErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOperationValidationErrorResponse"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "The given data was invalid.",
+                  "data": {
+                    "type": [
+                      "The selected type is invalid."
+                    ],
+                    "intent_key": [
+                      "The intent key field is required."
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v3/payment/void": {
+      "post": {
+        "tags": [
+          "Payment operations"
+        ],
+        "summary": "Void authorized payment",
+        "description": "Void an **authorized** (waiting-capture) hold.\n\nFully or partially **captured** payments cannot be voided — use the refund API instead.\n\n**Identity:**\n- `type=transaction` — send `intent_key` from `createTransaction` / webhook / redirect (do **not** send `transaction_id`)\n- `type=invoice` — send `transaction_id` (invoice id)",
+        "operationId": "voidPayment",
+        "security": [
+          {
+            "oauth2ClientCredentials": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidPaymentRequest"
+              },
+              "examples": {
+                "transaction": {
+                  "summary": "Void TR by intent_key",
+                  "value": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                },
+                "invoice": {
+                  "summary": "Void invoice by id",
+                  "value": {
+                    "type": "invoice",
+                    "transaction_id": 67890
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Void succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoidPaymentResponse"
+                },
+                "example": {
+                  "status": "success",
+                  "message": "transaction voided",
+                  "data": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "pay_load": {
+                      "order_id": "ORD-1001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Void rejected by business rules or gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoidPaymentResponse"
+                },
+                "example": {
+                  "status": "error",
+                  "message": "Transaction has already been captured and cannot be voided",
+                  "data": {
+                    "type": "transaction",
+                    "intent_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "pay_load": {
+                      "order_id": "ORD-1001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Vendor could not be resolved from OAuth client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOperationErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOperationValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/fawaterak/paid": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Paid / pending payment webhook",
+        "description": "Fawaterak **POST**s to your **webhook URL** when a payment completes or is **pending** (async methods such as Fawry, Aman, Masary).\n\n**Configure:** `redirectionUrls.webhookUrl` on `createTransaction` / iframe `requestBody`, or the default **Webhook** URL in Integrations.\n\n**API payload:** `transaction_key` = transaction `intent_key`; `transaction_id` = `transactions.id`; `status` = `paid` or `pending`.\n\n**Verify `transactionHashKey`:**\n```\nStringToSign = \"TransactionId=\" + transaction_id + \"&TransactionKey=\" + transaction_key + \"&PaymentMethod=\" + payment_method\nexpectedHash = HMAC-SHA256(StringToSign, your_vendor_api_key)\n```\n\nLegacy v2 TR payloads may also include `hashKey` signed with `InvoiceId` / `InvoiceKey` instead of `TransactionId` / `TransactionKey`.\n\nReturn **HTTP 200** promptly. Fulfill orders only when `status` is `paid`.",
+        "operationId": "webhookPaidPayment",
+        "servers": [
+          {
+            "url": "https://yoursite.com",
+            "description": "Your webhook endpoint (example path — use your own URL)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentWebhookPayload"
+              },
+              "examples": {
+                "paid": {
+                  "summary": "Payment completed",
+                  "value": {
+                    "transaction_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "transaction_id": 12345,
+                    "payment_method": "Visa-Mastercard",
+                    "status": "paid",
+                    "pay_load": "{\"order_id\":\"ORD-1001\"}",
+                    "paidAmount": "150.00",
+                    "paidCurrency": "EGP",
+                    "paidAt": "2026-06-01 14:30:00",
+                    "customerData": {
+                      "customer_unique_id": "cust-42",
+                      "customer_first_name": "Ahmed",
+                      "customer_last_name": "Ali",
+                      "customer_email": "ahmed@example.com",
+                      "customer_phone": "01000000000"
+                    },
+                    "transactionHashKey": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+                  }
+                },
+                "pending": {
+                  "summary": "Async method — awaiting customer payment",
+                  "value": {
+                    "transaction_key": "550e8400-e29b-41d4-a716-446655440000",
+                    "transaction_id": 12345,
+                    "payment_method": "Fawry",
+                    "status": "pending",
+                    "pay_load": "{\"order_id\":\"ORD-1001\"}",
+                    "paidAmount": "150.00",
+                    "paidCurrency": "EGP",
+                    "customerData": {
+                      "customer_unique_id": "cust-42",
+                      "customer_first_name": "Ahmed",
+                      "customer_last_name": "Ali",
+                      "customer_email": "ahmed@example.com",
+                      "customer_phone": "01000000000"
+                    },
+                    "transactionHashKey": "b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890ab"
+                  }
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentWebhookPayload"
+              },
+              "description": "Used when your webhook URL does **not** contain `_json` in the path."
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted — your server should respond quickly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAckResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "OK"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/fawaterak/failed": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Failed payment webhook",
+        "description": "Fawaterak **POST**s to your **Failed webhook** URL when a payment attempt fails (e.g. card declined, gateway error).\n\n**Configure:** Integrations → **Failed webhook** (`failedWebhook`).\n\n**API payload:** `transaction_key` = transaction `intent_key`; `transaction_id` = `transactions.id`.\n\n**Verify `hashKey`:**\n```\nStringToSign = \"TransactionId=\" + transaction_id + \"&TransactionKey=\" + transaction_key + \"&PaymentMethod=\" + payment_method\nexpectedHash = HMAC-SHA256(StringToSign, your_vendor_api_key)\n```\nFor IN (invoice) payloads, replace `TransactionId`/`TransactionKey` with `InvoiceId`/`InvoiceKey`.",
+        "operationId": "webhookFailedPayment",
+        "servers": [
+          {
+            "url": "https://yoursite.com",
+            "description": "Your failed webhook endpoint"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FailedPaymentWebhookPayload"
+              },
+              "example": {
+                "transaction_key": "550e8400-e29b-41d4-a716-446655440000",
+                "transaction_id": 12345,
+                "payment_method": "Visa-Mastercard",
+                "pay_load": "{\"order_id\":\"ORD-1001\"}",
+                "amount": "150.00",
+                "paidCurrency": "EGP",
+                "errorMessage": "Payment declined by issuer",
+                "response": "{\"gatewayCode\":\"DECLINED\"}",
+                "hashKey": "a3b4c5d6e7f8901234567890abcdef1234567890abcdef1234567890abcdef12"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/FailedPaymentWebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAckResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/fawaterak/cancel": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Cancel / expired reference webhook",
+        "description": "Fawaterak **POST**s to your **Cancellation webhook** when a payment reference expires or is canceled (Aman, Masary, Meeza, and similar async references).\n\n**Configure:** Integrations → **Cancellation webhook** (`cancellationWebhook`).\n\n**Content-Type:** always `application/json`.\n\n**Verify `hashKey`:**\n```\nStringToSign = \"referenceId=\" + referenceId + \"&PaymentMethod=\" + paymentMethod\nexpectedHash = HMAC-SHA256(StringToSign, your_vendor_api_key)\n```",
+        "operationId": "webhookCancelReference",
+        "servers": [
+          {
+            "url": "https://yoursite.com",
+            "description": "Your cancellation webhook endpoint"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelReferenceWebhookPayload"
+              },
+              "examples": {
+                "expired": {
+                  "summary": "Reference expired (cron / provider)",
+                  "value": {
+                    "referenceId": 998877,
+                    "status": "EXPIRED",
+                    "paymentMethod": "Aman",
+                    "pay_load": "{\"order_id\":\"ORD-1001\"}",
+                    "transactionId": 12345,
+                    "transactionKey": "550e8400-e29b-41d4-a716-446655440000",
+                    "hashKey": "d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcde"
+                  }
+                },
+                "canceled": {
+                  "summary": "Reference canceled by merchant or system",
+                  "value": {
+                    "referenceId": 998877,
+                    "status": "CANCELED",
+                    "paymentMethod": "Masary",
+                    "pay_load": "{\"order_id\":\"ORD-1002\"}",
+                    "transactionId": 12346,
+                    "transactionKey": "660e8400-e29b-41d4-a716-446655440001",
+                    "hashKey": "e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcdef"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAckResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/fawaterak/refund": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Refund webhook",
+        "description": "Fawaterak **POST**s to your **Refund webhook** when a refund request is **approved**.\n\n**Configure:** Integrations → **Refund webhook** (`refundWebhook`).\n\n**Content-Type:** always `application/json`.\n\n**Verify `hashKey`:**\n```\nStringToSign = \"transactionId=\" + transactionId + \"&amount=\" + amount + \"&currency=\" + currency\nexpectedHash = HMAC-SHA256(StringToSign, your_vendor_api_key)\n```",
+        "operationId": "webhookRefund",
+        "servers": [
+          {
+            "url": "https://yoursite.com",
+            "description": "Your refund webhook endpoint"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundWebhookPayload"
+              },
+              "example": {
+                "transactionId": 12345,
+                "amount": "50.00",
+                "currency": "EGP",
+                "status": 1,
+                "reason": "Customer requested partial refund",
+                "approvedAt": "2026-06-02 10:15:00",
+                "hashKey": "f1e2d3c4b5a6987654321098765432109876543210fedcba9876543210fedcba98"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAckResponse"
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth2ClientCredentials": {
+        "type": "oauth2",
+        "description": "Passport OAuth 2.0 for API v3. Obtain an access token with `grant_type=client_credentials`, then renew it with `grant_type=refresh_token` on the same `/oauth/token` URL. Use the access token as `Authorization: Bearer {token}` on OAuth-protected `/api/v3/*` endpoints.",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "/oauth/token",
+            "refreshUrl": "/oauth/token",
+            "scopes": {}
+          }
+        }
+      },
+      "domainHash": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "FAWATERAK-HASH-KEY",
+        "description": "HMAC-SHA256 domain hash. Must be sent together with header `FAWATERAK-DOMAIN`. Do not send `Authorization: Bearer`."
+      },
+      "vendorApiKeyBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Legacy vendor API key used by v2 endpoints with `ValidateVendorToken`. Send `Authorization: Bearer {vendor_api_key}` and `Content-Type: application/json`."
+      }
+    },
+    "schemas": {
+      "OAuthClientCredentialsRequest": {
+        "type": "object",
+        "required": [
+          "grant_type",
+          "client_id",
+          "client_secret"
+        ],
+        "properties": {
+          "grant_type": {
+            "type": "string",
+            "enum": [
+              "client_credentials"
+            ]
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d4e2c1a-b3f5-4e8a-9c1d-2a3b4c5d6e7f"
+          },
+          "client_secret": {
+            "type": "string",
+            "format": "password"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Optional Passport scopes."
+          }
+        }
+      },
+      "OAuthRefreshTokenRequest": {
+        "type": "object",
+        "required": [
+          "grant_type",
+          "refresh_token",
+          "client_id",
+          "client_secret"
+        ],
+        "properties": {
+          "grant_type": {
+            "type": "string",
+            "enum": [
+              "refresh_token"
+            ]
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token returned from a previous successful token response."
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9d4e2c1a-b3f5-4e8a-9c1d-2a3b4c5d6e7f"
+          },
+          "client_secret": {
+            "type": "string",
+            "format": "password"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Optional. Must be the same as, or a subset of, the scopes granted on the original token."
+          }
+        }
+      },
+      "OAuthTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token_type": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 31536000
+          },
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Present when refresh tokens are enabled for the OAuth client. Store securely and use with `grant_type=refresh_token` to obtain a new access token."
+          }
+        }
+      },
+      "OAuthTokenErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "invalid_grant"
+          },
+          "error_description": {
+            "type": "string",
+            "example": "The refresh token is invalid."
+          },
+          "message": {
+            "type": "string",
+            "example": "The refresh token is invalid."
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "first_name",
+          "last_name"
+        ],
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "description": "Customer first name."
+          },
+          "last_name": {
+            "type": "string",
+            "description": "Customer last name."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Customer email address."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Customer phone number."
+          },
+          "address": {
+            "type": "string",
+            "description": "Customer address."
+          },
+          "customer_number": {
+            "type": "string",
+            "description": "Merchant customer number."
+          },
+          "customer_unique_id": {
+            "type": "string",
+            "description": "Merchant unique customer identifier."
+          }
+        }
+      },
+      "CartItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "price",
+          "quantity"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Item name."
+          },
+          "price": {
+            "type": "number",
+            "format": "float",
+            "description": "Item unit price."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Item quantity. Minimum `1`."
+          }
+        }
+      },
+      "RedirectionUrls": {
+        "type": "object",
+        "properties": {
+          "successUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Customer redirect after successful payment."
+          },
+          "failUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Customer redirect after failed payment."
+          },
+          "pendingUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Customer redirect when payment is pending (async methods)."
+          },
+          "backUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Customer redirect when they choose not to proceed with payment or need to go back to edit the order. Used as the hosted checkout back/cancel link."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Server webhook URL for this transaction. Overrides the vendor dashboard default. Use `_json` in the path for JSON body delivery."
+          }
+        }
+      },
+      "WebhookCustomerData": {
+        "type": "object",
+        "properties": {
+          "customer_unique_id": {
+            "type": "string"
+          },
+          "customer_first_name": {
+            "type": "string"
+          },
+          "customer_last_name": {
+            "type": "string"
+          },
+          "customer_email": {
+            "type": "string",
+            "format": "email"
+          },
+          "customer_phone": {
+            "type": "string"
+          }
+        }
+      },
+      "PaymentWebhookPayload": {
+        "type": "object",
+        "description": "POST body sent to your webhook URL after payment. API v3 TR payments send `transaction_key`, `transaction_id`, and `status`. Legacy invoice webhooks may send `invoice_key`, `invoice_id`, and `invoice_status`.",
+        "properties": {
+          "invoice_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Legacy invoice key. API v3 TR webhooks use `transaction_key`."
+          },
+          "invoice_id": {
+            "type": "integer",
+            "description": "Legacy invoice id. API v3 TR webhooks use `transaction_id`."
+          },
+          "transaction_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "API v3 transaction intent key (`intent_key` from createTransaction)."
+          },
+          "transaction_id": {
+            "type": "integer",
+            "description": "Numeric `transactions.id` after the row is persisted."
+          },
+          "invoice_status": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "pending"
+            ],
+            "description": "Legacy invoice status. API v3 TR webhooks use `status`."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "pending"
+            ],
+            "description": "API v3 TR payment status at webhook time."
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "pay_load": {
+            "type": "string",
+            "description": "Merchant payload echoed from creation request."
+          },
+          "paidAmount": {
+            "type": "string"
+          },
+          "paidCurrency": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string",
+            "description": "Payment timestamp when status is paid."
+          },
+          "customerData": {
+            "$ref": "#/components/schemas/WebhookCustomerData"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "description": "Provider reference when available."
+          },
+          "transactionHashKey": {
+            "type": "string",
+            "description": "HMAC-SHA256 signature for TR webhooks. StringToSign = `TransactionId={transaction_id}&TransactionKey={transaction_key}&PaymentMethod={payment_method}`. Sign with your vendor API key."
+          },
+          "hashKey": {
+            "type": "string",
+            "description": "Legacy HMAC-SHA256 signature. v2 TR webhooks may also send this using `InvoiceId` / `InvoiceKey` in the string to sign. Prefer `transactionHashKey` for new integrations."
+          },
+          "api_key": {
+            "type": "string",
+            "description": "Legacy field on some integrations; prefer transactionHashKey verification."
+          },
+          "cardDiscountAmount": {
+            "type": "string"
+          },
+          "discountBankCode": {
+            "type": "string"
+          },
+          "fees": {
+            "type": "string"
+          },
+          "paymentToken": {
+            "type": "string"
+          }
+        }
+      },
+      "FailedPaymentWebhookPayload": {
+        "type": "object",
+        "description": "POST body for failed payment attempts. Sent to the dashboard **Failed webhook** URL. API v3 TR failures use `transaction_key` and `transaction_id`.",
+        "properties": {
+          "invoice_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Legacy invoice key. API v3 TR failures use `transaction_key`."
+          },
+          "invoice_id": {
+            "type": "integer",
+            "description": "Legacy invoice id. API v3 TR failures use `transaction_id`."
+          },
+          "transaction_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "API v3 transaction intent key."
+          },
+          "transaction_id": {
+            "type": "integer",
+            "description": "Numeric `transactions.id`."
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "pay_load": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Attempted payment amount."
+          },
+          "paidCurrency": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable failure reason."
+          },
+          "response": {
+            "type": "string",
+            "description": "Provider or gateway response (often JSON stringified)."
+          },
+          "hashKey": {
+            "type": "string",
+            "description": "HMAC-SHA256 signature. StringToSign = `TransactionId={transaction_id}&TransactionKey={transaction_key}&PaymentMethod={payment_method}` (use `InvoiceId`/`InvoiceKey` for IN payloads). Sign with your vendor API key."
+          }
+        }
+      },
+      "CancelReferenceWebhookPayload": {
+        "type": "object",
+        "description": "POST body when an async payment reference expires or is canceled. Always JSON.",
+        "properties": {
+          "referenceId": {
+            "type": "integer",
+            "description": "Provider reference row id (e.g. Aman/Masary transaction id)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "EXPIRED",
+              "CANCELED"
+            ],
+            "description": "Cancellation reason."
+          },
+          "paymentMethod": {
+            "type": "string"
+          },
+          "pay_load": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "integer",
+            "description": "Parent transaction / invoice id."
+          },
+          "transactionKey": {
+            "type": "string",
+            "description": "Business key (`intent_key` for API v3 transactions)."
+          },
+          "hashKey": {
+            "type": "string",
+            "description": "HMAC-SHA256 over `referenceId` and `paymentMethod`."
+          }
+        }
+      },
+      "RefundWebhookPayload": {
+        "type": "object",
+        "description": "POST body when a refund is approved. Always JSON.",
+        "properties": {
+          "transactionId": {
+            "type": "integer",
+            "description": "Refunded transaction id (`transactions.id` or invoice id)."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Refunded amount."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "description": "Refund request status code."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Refund reason supplied by merchant or customer."
+          },
+          "approvedAt": {
+            "type": "string",
+            "description": "Approval timestamp (`Y-m-d H:i:s`)."
+          },
+          "hashKey": {
+            "type": "string",
+            "description": "HMAC-SHA256 signature. StringToSign = `transactionId={transactionId}&amount={amount}&currency={currency}`. Sign with your vendor API key."
+          }
+        }
+      },
+      "WebhookAckResponse": {
+        "type": "object",
+        "description": "Recommended response from your webhook handler. Any HTTP 200 body is accepted; empty body is fine.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          }
+        }
+      },
+      "TaxData": {
+        "type": "object",
+        "required": [
+          "title",
+          "value"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Tax title."
+          },
+          "value": {
+            "type": "number",
+            "description": "Percentage tax applied at TR creation."
+          }
+        }
+      },
+      "DiscountData": {
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pcg",
+              "literal"
+            ],
+            "description": "Discount type: percentage (`pcg`) or fixed amount (`literal`)."
+          },
+          "value": {
+            "type": "number",
+            "description": "Discount value."
+          }
+        }
+      },
+      "CreateTransactionRequest": {
+        "type": "object",
+        "properties": {
+          "payment_method_id": {
+            "type": "integer",
+            "description": "Preselects method on hosted checkout; may trigger direct-dispatch when eligible.",
+            "x-order": 1
+          },
+          "cartTotal": {
+            "type": "number",
+            "format": "float",
+            "description": "Total transaction amount before optional shipping, tax, and discount adjustments.",
+            "x-order": 2
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO currency code. `SAR` is stored as `SR`.",
+            "x-order": 3
+          },
+          "customer": {
+            "type": "object",
+            "required": [
+              "first_name",
+              "last_name"
+            ],
+            "properties": {
+              "first_name": {
+                "type": "string",
+                "description": "Customer first name."
+              },
+              "last_name": {
+                "type": "string",
+                "description": "Customer last name."
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "description": "Customer email address."
+              },
+              "phone": {
+                "type": "string",
+                "description": "Customer phone number."
+              },
+              "address": {
+                "type": "string",
+                "description": "Customer address."
+              },
+              "customer_number": {
+                "type": "string",
+                "description": "Merchant customer number."
+              },
+              "customer_unique_id": {
+                "type": "string",
+                "description": "Merchant unique customer identifier."
+              }
+            },
+            "description": "Customer details for the transaction.",
+            "x-order": 4
+          },
+          "cartItems": {
+            "type": "array",
+            "description": "One or more cart items included in the transaction.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "price",
+                "quantity"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Item name."
+                },
+                "price": {
+                  "type": "number",
+                  "format": "float",
+                  "description": "Item unit price."
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Item quantity. Minimum `1`."
+                }
+              }
+            },
+            "x-order": 5
+          },
+          "pay_load": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Opaque merchant JSON payload stored as `pay_load` and returned in webhooks.",
+            "x-order": 6
+          },
+          "redirectionUrls": {
+            "type": "object",
+            "properties": {
+              "successUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Customer redirect after successful payment."
+              },
+              "failUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Customer redirect after failed payment."
+              },
+              "pendingUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Customer redirect when payment is pending (async methods)."
+              },
+              "backUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Customer redirect when they choose not to proceed with payment or need to go back to edit the order. Used as the hosted checkout back/cancel link."
+              },
+              "webhookUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Server webhook URL for this transaction. Overrides the vendor dashboard default. Use `_json` in the path for JSON body delivery."
+              }
+            },
+            "description": "Customer redirect URLs, optional back/cancel URL, and optional per-transaction webhook URL.",
+            "x-order": 7
+          },
+          "sendEmail": {
+            "type": "boolean",
+            "description": "When true, sends the hosted checkout link to the customer email when available.",
+            "x-order": 8
+          },
+          "sendSMS": {
+            "type": "boolean",
+            "description": "When true, sends the hosted checkout link to the customer phone number when available and SMS sending is enabled.",
+            "x-order": 9
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Defaults to +2 days from request time.",
+            "x-order": 10
+          },
+          "tr_number": {
+            "type": "string",
+            "description": "Merchant-visible transaction number.",
+            "x-order": 11
+          },
+          "redirectOption": {
+            "type": "boolean",
+            "description": "When true, forces link mode even if direct-dispatch would otherwise apply.",
+            "x-order": 12
+          },
+          "authAndCapture": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "Enable auth-and-capture on supported card flows.",
+            "x-order": 13
+          },
+          "taxData": {
+            "type": "object",
+            "required": [
+              "title",
+              "value"
+            ],
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Tax title."
+              },
+              "value": {
+                "type": "number",
+                "description": "Percentage tax applied at TR creation."
+              }
+            },
+            "description": "Tax data applied at TR creation.",
+            "x-order": 14
+          },
+          "discountData": {
+            "type": "object",
+            "required": [
+              "type",
+              "value"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pcg",
+                  "literal"
+                ],
+                "description": "Discount type: percentage (`pcg`) or fixed amount (`literal`)."
+              },
+              "value": {
+                "type": "number",
+                "description": "Discount value."
+              }
+            },
+            "description": "Discount data applied at TR creation.",
+            "x-order": 15
+          },
+          "list_style": {
+            "type": "string",
+            "enum": [
+              "h",
+              "v"
+            ],
+            "default": "h",
+            "description": "Payment-method list layout on hosted checkout: `h` horizontal (default), `v` vertical.",
+            "x-order": 16
+          },
+          "lang": {
+            "type": "string",
+            "default": "en",
+            "description": "Appended as `?lg=` on returned URLs when provided.",
+            "x-order": 17
+          },
+          "mobileWalletNumber": {
+            "type": "string",
+            "description": "Provider-specific field (e.g. Meeza direct-dispatch).",
+            "x-order": 18
+          }
+        }
+      },
+      "TransactionLinkData": {
+        "type": "object",
+        "properties": {
+          "intent_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "short_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "short_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "TTL in seconds (30 days at time of writing)."
+          }
+        }
+      },
+      "CreateTransactionSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionLinkData"
+          }
+        }
+      },
+      "TransactionPaymentData": {
+        "type": "object",
+        "properties": {
+          "intent_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "TTL in seconds (30 days at time of writing)."
+          },
+          "payment_data": {
+            "type": "object",
+            "description": "Provider-specific payment initialization data when `payment_method_id` is provided.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "CreateTransactionPaymentSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionPaymentData"
+          }
+        }
+      },
+      "DirectDispatchResponse": {
+        "type": "object",
+        "description": "Provider-specific body from synchronous payment initialization (no intent URLs returned).",
+        "additionalProperties": true,
+        "example": {
+          "redirect_url": "https://provider.example/pay/abc"
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "message": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "description": "Laravel validator messages keyed by field."
+              }
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional field-level errors (cancel/edit endpoints)."
+          }
+        }
+      },
+      "SuccessMessageResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "VendorPaymentMethodItem": {
+        "type": "object",
+        "properties": {
+          "payment_method_id": {
+            "type": "integer"
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "name_ar": {
+            "type": "string"
+          },
+          "redirect": {
+            "type": "string",
+            "description": "`apiRedirect` from PaymentOperations (`\"true\"` or `\"false\"`)."
+          },
+          "logo": {
+            "type": "string",
+            "format": "uri"
+          },
+          "commission_on_customer": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "Whether Fawaterak commission is applied on the customer for this method. `1` = applied on the customer, `2` = not applied (absorbed by the vendor). Raw value from `vendor_payment_options.apply_commission_customer`."
+          },
+          "integration_status": {
+            "type": "integer",
+            "nullable": true,
+            "description": "API/integration toggle for this method from `vendor_payment_options.integration_status`. Always `1` here since only integration-enabled methods are returned."
+          }
+        }
+      },
+      "VendorPaymentMethodsSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "vendorSettingsData": {
+            "type": "object",
+            "properties": {
+              "custome_iframe_title": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorPaymentMethodItem"
+            }
+          }
+        }
+      },
+      "TransactionDetail": {
+        "type": "object",
+        "properties": {
+          "intent_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transaction intent key."
+          },
+          "transaction_id": {
+            "type": "integer",
+            "description": "Persisted transaction id. `0` when the transaction is still cache-only."
+          },
+          "customer_email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          },
+          "commission": {
+            "type": "number",
+            "nullable": true,
+            "description": "Commission amount when a persisted transaction commission exists."
+          },
+          "transaction_created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "paid": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "`1` when the transaction status is paid, otherwise `0`."
+          },
+          "paid_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "status_text": {
+            "type": "string",
+            "example": "unpaid",
+            "description": "Human-readable status text."
+          },
+          "total": {
+            "type": "number",
+            "description": "Transaction total converted to EGP."
+          },
+          "currency": {
+            "type": "string",
+            "example": "EGP",
+            "description": "Returned currency is EGP after conversion."
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "Localized payment method name when available."
+          },
+          "pay_load": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Merchant payload stored on the transaction intent/row."
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "transaction_link": {
+            "type": "string",
+            "format": "uri",
+            "description": "Hosted checkout URL for the transaction intent."
+          },
+          "transaction_history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodHistoryItem"
+            },
+            "description": "Payment method history returned from PaymentMethodHistoryService::getHistory(). Present when a persisted transaction has history."
+          }
+        }
+      },
+      "TransactionDataSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/TransactionDetail"
+          }
+        }
+      },
+      "FetchTransactionsRequest": {
+        "type": "object",
+        "properties": {
+          "paginate": {
+            "type": "integer",
+            "maximum": 20,
+            "default": 10,
+            "description": "Page size (max 20)."
+          },
+          "id": {
+            "type": "string",
+            "description": "Filter by numeric `transactions.id` or UUID `intent_key`."
+          },
+          "status": {
+            "type": "integer"
+          },
+          "pay_load": {
+            "type": "string"
+          },
+          "createAt": {
+            "type": "string",
+            "description": "Created-at range: `YYYY-MM-DD - YYYY-MM-DD`."
+          },
+          "paidAt": {
+            "type": "string",
+            "description": "Paid-at range: `YYYY-MM-DD - YYYY-MM-DD`."
+          }
+        }
+      },
+      "FetchTransactionsSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "description": "Laravel paginator JSON (current_page, data, per_page, total, etc.).",
+            "additionalProperties": true
+          }
+        }
+      },
+      "GetTransactionsDataSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionExportItem"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        }
+      },
+      "TransactionExportItem": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "integer"
+          },
+          "intent_key": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invoice_id": {
+            "type": "integer"
+          },
+          "customer_email": {
+            "type": "string",
+            "nullable": true
+          },
+          "transaction_created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_text": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "example": "EGP"
+          },
+          "pay_load": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "transaction_transactions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "original_amount_egp": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "current_page": {
+            "type": "integer"
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "from": {
+            "type": "integer",
+            "nullable": true
+          },
+          "to": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "CreateRefundRequest": {
+        "type": "object",
+        "required": [
+          "refund_type",
+          "refund_id",
+          "reason",
+          "refundable_amount"
+        ],
+        "properties": {
+          "refund_type": {
+            "type": "string",
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3"
+            ],
+            "description": "From `POST /api/v3/refund/refundTypes`. `0` = invoice, `1` = payment link transaction, `2` = collection link transaction, `3` = integration transaction."
+          },
+          "refund_id": {
+            "type": "integer",
+            "description": "Target id for the selected `refund_type`: invoice id (`0`), payment-request transaction id (`1`), collection-link transaction id (`2`), or integration transaction id (`3`)."
+          },
+          "reason": {
+            "type": "string",
+            "description": "One of the values from `POST /api/v3/refund/refundReasons`."
+          },
+          "refundable_amount": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Amount to refund (partial or full)."
+          },
+          "comment": {
+            "type": "string",
+            "description": "Optional internal note."
+          }
+        }
+      },
+      "DeleteRefundRequest": {
+        "type": "object",
+        "required": [
+          "refund_id"
+        ],
+        "properties": {
+          "refund_id": {
+            "type": "integer",
+            "description": "Id of the refund request to cancel."
+          }
+        }
+      },
+      "CapturePaymentRequest": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "invoice",
+              "transaction"
+            ],
+            "description": "Readable payment target type. Use `transaction` for API v3 TR payments."
+          },
+          "intent_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required when `type=transaction`. UUID from createTransaction, webhook `transaction_key`, or the success/fail redirect."
+          },
+          "transaction_id": {
+            "type": "integer",
+            "description": "Required when `type=invoice`. Numeric invoice id."
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Optional capture amount. Omit to capture the remaining authorized amount."
+          }
+        }
+      },
+      "VoidPaymentRequest": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "invoice",
+              "transaction"
+            ],
+            "description": "Readable payment target type. Use `transaction` for API v3 TR payments."
+          },
+          "intent_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required when `type=transaction`. UUID from createTransaction, webhook `transaction_key`, or the success/fail redirect."
+          },
+          "transaction_id": {
+            "type": "integer",
+            "description": "Required when `type=invoice`. Numeric invoice id."
+          }
+        }
+      },
+      "VoidPaymentResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "description": "Identity (`type` plus `intent_key` or `transaction_id`), optional capture `amount`, and the merchant `pay_load` stored at create.",
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "intent_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "transaction_id": {
+                "type": "integer"
+              },
+              "amount": {
+                "type": "number"
+              },
+              "pay_load": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Merchant payload from createTransaction / invoice create (`pay_load` / `payLoad`)."
+              }
+            }
+          }
+        }
+      },
+      "PaymentOperationResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "payload"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "intent_key": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "transaction_id": {
+                "type": "integer"
+              },
+              "amount": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "PaymentOperationErrorResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true
+          }
+        }
+      },
+      "PaymentOperationValidationErrorResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "example": "The given data was invalid."
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Field validation errors."
+          }
+        }
+      },
+      "RefundReasonsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RefundListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "refundable_type": {
+            "type": "string",
+            "example": "Invoice"
+          },
+          "refundable_amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "refundable_id": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "can_delete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RefundDetails": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "refundable_amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RefundListResponse": {
+        "type": "object",
+        "properties": {
+          "current_page": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundListItem"
+            }
+          },
+          "first_page_url": {
+            "type": "string"
+          },
+          "from": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "last_page_url": {
+            "type": "string"
+          },
+          "next_page_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "type": "string"
+          },
+          "per_page": {
+            "type": "integer",
+            "example": 10
+          },
+          "prev_page_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "integer",
+            "nullable": true
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "GetTransactionDataRequest": {
+        "type": "object",
+        "required": [
+          "intent_key"
+        ],
+        "properties": {
+          "intent_key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transaction intent key returned by Create transaction."
+          }
+        }
+      },
+      "PaymentMethodHistoryItem": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Localized payment method name."
+              },
+              "logo": {
+                "type": "string",
+                "format": "uri",
+                "nullable": true
+              }
+            }
+          },
+          "amount": {
+            "type": "string",
+            "example": "100.00 EGP"
+          },
+          "currency": {
+            "type": "string",
+            "example": "EGP"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenizationCustomerData": {
+        "type": "object",
+        "required": [
+          "customer_unique_id",
+          "customer_first_name",
+          "customer_last_name",
+          "customer_email",
+          "customer_phone"
+        ],
+        "properties": {
+          "customer_unique_id": {
+            "type": "string",
+            "description": "Your customer unique identifier.",
+            "example": "222111333"
+          },
+          "customer_first_name": {
+            "type": "string",
+            "example": "Fname"
+          },
+          "customer_last_name": {
+            "type": "string",
+            "example": "Lname"
+          },
+          "customer_email": {
+            "type": "string",
+            "format": "email",
+            "example": "customer@example.com"
+          },
+          "customer_phone": {
+            "type": "string",
+            "example": "01111111111"
+          }
+        }
+      },
+      "TokenizationOrder": {
+        "type": "object",
+        "required": [
+          "currency"
+        ],
+        "properties": {
+          "cartTotal": {
+            "type": "number",
+            "format": "float",
+            "description": "Required when `deduct_total_amount` is true.",
+            "example": 100
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code.",
+            "example": "EGP"
+          },
+          "cartItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartItem"
+            }
+          },
+          "frequency": {
+            "type": "string",
+            "description": "Optional recurring frequency stored with the invoice.",
+            "example": "monthly"
+          }
+        }
+      },
+      "TokenizationScreenRedirectionUrls": {
+        "type": "object",
+        "required": [
+          "success_url",
+          "fail_url"
+        ],
+        "properties": {
+          "success_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://domain.com/success"
+          },
+          "fail_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://domain.com/fail"
+          },
+          "webhook_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Webhook URL that receives the created token.",
+            "example": "https://domain.com/token-webhook"
+          }
+        }
+      },
+      "TokenizationPayRedirectionUrls": {
+        "type": "object",
+        "required": [
+          "successUrl",
+          "failUrl"
+        ],
+        "properties": {
+          "successUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://domain.com/success"
+          },
+          "failUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://domain.com/fail"
+          }
+        }
+      },
+      "CreateCardTokenScreenRequest": {
+        "type": "object",
+        "required": [
+          "order",
+          "customerData",
+          "redirectionUrls"
+        ],
+        "properties": {
+          "deduct_total_amount": {
+            "type": "boolean",
+            "description": "Send `true` to deduct the full order amount without voiding.",
+            "example": true
+          },
+          "order": {
+            "$ref": "#/components/schemas/TokenizationOrder"
+          },
+          "customerData": {
+            "$ref": "#/components/schemas/TokenizationCustomerData"
+          },
+          "redirectionUrls": {
+            "$ref": "#/components/schemas/TokenizationScreenRedirectionUrls"
+          },
+          "allowedCardTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "visa",
+                "mastercard",
+                "meeza"
+              ]
+            },
+            "example": []
+          },
+          "payLoad": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Custom field used to connect sent data with received data after payment."
+          }
+        }
+      },
+      "DeleteCustomerTokenRequest": {
+        "type": "object",
+        "required": [
+          "customerUniqueId",
+          "cardTokenUniqueId"
+        ],
+        "properties": {
+          "customerUniqueId": {
+            "type": "string",
+            "example": "222111333"
+          },
+          "cardTokenUniqueId": {
+            "type": "string",
+            "example": "2345"
+          },
+          "deleteTokenFromBank": {
+            "type": "string",
+            "description": "Optional provider token to delete directly from bank/provider.",
+            "example": "9731673377207107"
+          }
+        }
+      },
+      "CreateCardTokenScreenResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "redirectUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://staging.fawaterk.com/nbe/storeToken/19941166e94728a4ad6ef3b19e6bfbe31f96bcacfb6f4b4b3804"
+          }
+        }
+      },
+      "CreateTokenizationPayTokenizationRequest": {
+        "type": "object",
+        "required": [
+          "tokenAction",
+          "order",
+          "customerData"
+        ],
+        "properties": {
+          "tokenAction": {
+            "type": "string",
+            "enum": [
+              "tokenization"
+            ],
+            "description": "Must be sent as `tokenization` for this flow.",
+            "example": "tokenization"
+          },
+          "order": {
+            "type": "object",
+            "required": [
+              "amount",
+              "currency"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "format": "float",
+                "example": 10
+              },
+              "currency": {
+                "type": "string",
+                "example": "USD"
+              }
+            }
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Custom merchant payload.",
+            "example": {
+              "merchant_reference": "123",
+              "trasaction_data": "transaction data"
+            }
+          },
+          "customerData": {
+            "type": "object",
+            "required": [
+              "customer_token"
+            ],
+            "properties": {
+              "customer_token": {
+                "type": "string",
+                "description": "Saved card token returned by tokenization webhook.",
+                "example": "8lvfHBZC3n7lmTRO"
+              },
+              "card_cvv": {
+                "type": "string",
+                "format": "password",
+                "description": "Required only when CVV validation is active for the vendor.",
+                "example": "100"
+              }
+            }
+          },
+          "redirectionUrls": {
+            "$ref": "#/components/schemas/TokenizationPayRedirectionUrls"
+          }
+        }
+      },
+      "CreateTokenizationPayRecurringRequest": {
+        "type": "object",
+        "required": [
+          "order",
+          "customerData"
+        ],
+        "properties": {
+          "order": {
+            "type": "object",
+            "required": [
+              "amount",
+              "currency"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "format": "float",
+                "example": 1000
+              },
+              "currency": {
+                "type": "string",
+                "example": "EGP"
+              }
+            }
+          },
+          "customerData": {
+            "type": "object",
+            "required": [
+              "customer_token"
+            ],
+            "properties": {
+              "customer_token": {
+                "type": "string",
+                "description": "Saved card token returned by tokenization webhook.",
+                "example": "UFZiaC98572rKZGZ"
+              },
+              "card_cvv": {
+                "type": "string",
+                "format": "password",
+                "description": "Required only when CVV validation is active for the vendor.",
+                "example": "100"
+              }
+            }
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Custom merchant payload.",
+            "example": {
+              "merchant_reference": "123",
+              "trasaction_data": "transaction data"
+            }
+          },
+          "redirectionUrls": {
+            "$ref": "#/components/schemas/TokenizationPayRedirectionUrls"
+          }
+        }
+      },
+      "TokenizationRedirectResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "redirectTo": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://staging.fawaterk.com/mpgs/eyJpdiI6InZNTkN6NjhORHVOM29xQ3NxRmt4cUE9PSIsInZhbHVlIjoieHI2ZDhBTzIyQ1ZnZGMyd001TnM3dz09IiwibWFjIjoiODdkNDYwZTg4ODdmMmQ3YTc5Y2VlZGI2ZTcyNmQ5MWQ0YTg3MDkzNzYyNzE5YWQwNzlkZDgzYzhmY2JjMDM4NiIsInRhZyI6IiJ9/auth"
+          }
+        }
+      },
+      "RecurringPayResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "transaction_id": {
+            "type": "integer",
+            "example": 1011767
+          }
+        }
+      },
+      "CreateEinvoiceRequest": {
+        "type": "object",
+        "required": [
+          "currency",
+          "customer",
+          "cartItems",
+          "cartTotal"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "example": "EGP"
+          },
+          "cartTotal": {
+            "type": "number",
+            "format": "float",
+            "example": 150
+          },
+          "customer": {
+            "type": "object",
+            "required": [
+              "first_name",
+              "last_name",
+              "customer_unique_id"
+            ],
+            "properties": {
+              "first_name": {
+                "type": "string"
+              },
+              "last_name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "customer_unique_id": {
+                "type": "string",
+                "description": "Customer id at your system"
+              }
+            }
+          },
+          "cartItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "price",
+                "quantity"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "Your system reference"
+          },
+          "payLoad": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "redirectionUrls": {
+            "type": "object",
+            "properties": {
+              "successUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "failUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "pendingUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "backUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Customer redirect when they choose not to proceed with payment or need to go back to edit the order. Used as the hosted checkout back/cancel link."
+              },
+              "webhookUrl": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        }
+      },
+      "CreateEinvoiceSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "invoiceKey": {
+                "type": "string"
+              },
+              "invoiceId": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "ListEinvoicesRequest": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer"
+              },
+              "invoice_number": {
+                "type": "string"
+              },
+              "customer_id": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "ListEinvoicesSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "object",
+            "description": "Laravel paginator object"
+          }
+        }
+      },
+      "EinvoiceIdRequest": {
+        "type": "object",
+        "required": [
+          "invoice_id"
+        ],
+        "properties": {
+          "invoice_id": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpdateEinvoiceRequest": {
+        "type": "object",
+        "required": [
+          "invoice_id",
+          "customer"
+        ],
+        "properties": {
+          "invoice_id": {
+            "type": "integer"
+          },
+          "customer": {
+            "type": "object",
+            "required": [
+              "first_name",
+              "last_name",
+              "customer_unique_id"
+            ],
+            "properties": {
+              "first_name": {
+                "type": "string"
+              },
+              "last_name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "customer_unique_id": {
+                "type": "string",
+                "description": "Customer id at your system"
+              }
+            }
+          },
+          "currency": {
+            "type": "string"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "hasHistory": {
+            "type": "boolean",
+            "description": "When true, currency/products validation is skipped."
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "invoice_number": {
+            "type": "string",
+            "description": "Your system reference"
+          },
+          "tags": {
+            "type": "string"
+          }
+        }
+      },
+      "GetEinvoiceSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "data": {
+            "type": "object",
+            "description": "Full e-invoice detail object"
+          }
+        }
+      },
+      "DeleteEinvoiceSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "message": {
+            "type": "string",
+            "example": "invoice deleted"
+          }
+        }
+      }
+    }
+  },
+  "x-tagGroups": [
+    {
+      "name": "Overview",
+      "tags": [
+        "Get started",
+        "Auth token"
+      ]
+    },
+    {
+      "name": "Payment transactions",
+      "tags": [
+        "Transactions overview",
+        "API integration",
+        "Iframe integration",
+        "Tokenization and recurring",
+        "Webhooks",
+        "E-Commerce Plugins"
+      ]
+    },
+    {
+      "name": "Payment links",
+      "tags": [
+        "Overview",
+        "E-invoicing"
+      ]
+    },
+    {
+      "name": "Mobile integrations",
+      "tags": [
+        "Mobile integrations",
+        "Mobile — List payment methods",
+        "Mobile — Process transaction"
+      ]
+    },
+    {
+      "name": "Refund APIs",
+      "tags": [
+        "Refund APIs"
+      ]
+    },
+    {
+      "name": "Payment operations",
+      "tags": [
+        "Payment operations"
+      ]
+    },
+    {
+      "name": "References",
+      "tags": [
+        "Test cards"
+      ]
+    }
+  ]
+}
