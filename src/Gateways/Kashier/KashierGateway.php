@@ -38,6 +38,8 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierConfiguratio
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\GatewayCapabilities;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Throwable;
 
 final class KashierGateway implements
@@ -59,6 +61,7 @@ final class KashierGateway implements
         private readonly KashierSignatureVerifier $signatures,
         private readonly KashierStatusMapper $statuses,
         private readonly array $config = [],
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
         // Configuration is validated when an operation needs it, so an
         // unconfigured Kashier cannot break other gateways at boot.
@@ -202,6 +205,11 @@ final class KashierGateway implements
     /**
      * Abandons the checkout session, then reads it back: the session read is
      * the documented confirmation, the PATCH answer is not relied on.
+     *
+     * A failed abandon does not stop the cancellation (E-K4: Kashier test
+     * rejects the documented call with "merchant not found"). The session read
+     * still decides: a paid session stays paid, an open one is then cancelled
+     * locally, and a later capture is a late payment.
      */
     public function cancelPayment(PaymentStatusRequest $request): PaymentStatusResult
     {
@@ -214,7 +222,17 @@ final class KashierGateway implements
             throw new UnsupportedPaymentOperationException('kashier', 'cancel_payment');
         }
 
-        $this->client->abandonPaymentSession($sessionId);
+        try {
+            $this->client->abandonPaymentSession($sessionId);
+        } catch (KashierApiException $e) {
+            $this->logger->warning('payment.kashier_abandon_failed', [
+                'gateway' => 'kashier',
+                'payment_reference' => $request->paymentReference,
+                'session_id' => $sessionId,
+                'status_code' => $e->statusCode,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $this->getPaymentStatus($request);
     }

@@ -35,10 +35,18 @@
 - **الخطوات:** E-K2، وبعدها على نفس الصفحة كارت ناجح (`06/25`)
 - **المهم:** إن الحزمة تعتبر الدفع ناجح من غير ما تتلخبط من الـ transaction الفاشل (`fillIdentifiers` بيسمح يتغيّر الـ transaction id طول ما الدفع لسه متدفعش)
 
-### E-K4: abandon وبعدين دفع — ⏳
+### E-K4: ترك الـ session (abandon) وبعدين دفع — ⚠️ النتيجة مخالفة للتوثيق (الجزء التاني مستني)
+- **التاريخ / البيئة:** 2026-10-22/23 · Kashier test · الحزمة babe4f5 · المشروع التجريبي (pg.rawajai.click)
 - **السؤال:** الـ session بعد `PATCH /v3/payment/sessions/{id}` ينفع لسه تتدفع؟ (التوثيق مقالش)
 - **الخطوات:** نعمل session ← نفتح الصفحة ← abandon من الـ API ← نحاول ندفع من نفس الصفحة اللي مفتوحة ← نعمل reload
-- **التأثير:** R16 / ADR-11. لو الدفع نفع، يبقى لازم سياسة الدفع المتأخر تشتغل
+- **المتوقع (حسب التوثيق):** `PATCH` بـ `Content-Type: application/json` وbody `{}` و"takes no credential" ← 200 والـ session تبقى `ABANDONED`
+- **النتيجة الفعلية:** الـ abandon فشل بـ 6 أشكال، والـ session فضلت زي ما هي (`CREATED` أو `OPENED`):
+  - body `{}` (من غير مفاتيح، زي التوثيق)، و`{}` + `Authorization`، و`{}` + `Authorization` + `api-key`، و`{}` + `?merchantId=` ← 404 JSON: `"cause": "The request object is invalid"`، و`"This merchant is not found on kashier, example 'MID-XX-XX'"`
+  - body `{"merchantId": …}` (مع `api-key` ومن غيره) ← 404 HTML: "The specified URL cannot be found" (طبقة حماية قبل الـ API)
+  - الـ `GET /v3/payment/sessions/{id}/payment` على نفس الـ session بنفس الـ Secret Key شغال عادي
+- **الدليل:** sessions ‏`6ada8d445c31f7090aee51b5` و`6ada91f30242459f2c0ee1ac` و`6adaee2b5c31f7090aef30fe`، وتقارير المشروع التجريبي
+- **الاستنتاج:** الـ abandon مش شغال على test بالشكل الموثّق، فـ `cancelPayment()` كان بيرمي exception دايماً على Kashier. وسؤال "هل الـ session بعد الـ abandon تتدفع" لسه متجاوبش، ومستنيين رد الدعم على الشكل الصح
+- **اللي اتحدّث:** `cancelPayment()` في Kashier بقى يكمّل محلياً لو الـ abandon فشل (بعد قراءة الـ session) · docs/gateways/kashier.md §2 · docs/usage.md §10 · test `CancellationTest`
 
 ### E-K5: Refund كامل وجزئي — ⏳
 - **السؤال:** الرد الفوري (SUCCESS ولا PENDING)، وبيجي webhook ولا لأ؟ والـ `event` و`transactionId` بتوعه إيه؟
@@ -98,4 +106,4 @@
 ## النتائج (ملخص)
 | التجربة | التاريخ | النتيجة | اللي اتغيّر |
 |---|---|---|---|
-| — | — | — | — |
+| E-K4 | 2026-10-23 | ⚠️ الـ abandon الموثّق بيرجع 404 "merchant not found" | `cancelPayment()` بيكمّل محلياً لو الـ abandon فشل |

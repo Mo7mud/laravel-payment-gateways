@@ -6,6 +6,18 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Kashier: `cancelPayment()` no longer fails when the session abandon call is
+  rejected (E-K4: Kashier test answers the documented
+  `PATCH /v3/payment/sessions/{id}` with 404 "merchant not found"). The
+  failure is logged as `payment.kashier_abandon_failed` (warning), the session
+  is still read back, and an open session is cancelled locally; a later
+  capture is a late payment, as with gateways without a cancellation API.
+
+### Added
+- `KashierGateway` takes an optional PSR logger (last constructor argument,
+  `logger:`); the service provider passes the package log channel.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added

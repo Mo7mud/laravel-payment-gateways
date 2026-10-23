@@ -189,11 +189,12 @@ final class PaymentServiceProvider extends ServiceProvider
             array_values((array) config('payment-gateway.kashier.required_signed_keys', KashierSignatureVerifier::DEFAULT_REQUIRED_KEYS)),
         ));
 
-        $this->app->singleton(KashierGateway::class, static fn (Application $app): KashierGateway => new KashierGateway(
+        $this->app->singleton(KashierGateway::class, fn (Application $app): KashierGateway => new KashierGateway(
             client: $app->make(KashierClientInterface::class),
             signatures: $app->make(KashierSignatureVerifier::class),
             statuses: $app->make(KashierStatusMapper::class),
             config: (array) config('payment-gateway.kashier', []),
+            logger: $this->logger($app),
         ));
     }
 

@@ -23,15 +23,16 @@
 |---|---|
 | إنشاء | `POST /v3/payment/sessions` |
 | حالة الـ session | `GET /v3/payment/sessions/{id}/payment` 📘 (ده التأكيد من السيرفر) |
-| إلغاء (abandon) | `PATCH /v3/payment/sessions/{id}` بـ body `{}` 📘 ← `ABANDONED`. مبيحركش فلوس، والـ session اللي في حالة نهائية بتفضل زي ما هي |
+| ترك الـ session (abandon) | `PATCH /v3/payment/sessions/{id}` بـ body `{}` و"takes no credential" 📘 ← `ABANDONED`. بيعلّم الـ session إنها متروكة "typically when a customer closes checkout or you no longer need the session"، ومفيش عملية إلغاء (cancel) غيرها في التوثيق. مبيحركش فلوس، والـ session اللي في حالة نهائية بتفضل زي ما هي. 🧪 على test بيرجع 404 "merchant not found" بكل الأشكال (E-K4) |
 | البحث في الـ orders | `GET /v3/payment/orders?…` (الحزمة بتستخدمه في الـ reconcile) |
 
 حقول الإنشاء المهمة: `amount` (string عشري)، و`currency`، و`order` (merchantOrderId)، و`merchantRedirect`، و`serverWebhook`، و`expireAt` (ISO UTC)، و`maxFailureAttempts`، و`allowedMethods`، و`defaultMethod`، و`failureRedirect`، و`redirectMethod`، و`display`، و`enable3DS`، و`metaData`، و`customer{email,reference}`، و`type: one-time`، و`interactionSource: ECOMMERCE`.
 الرد: `_id` (sessionId) + `sessionUrl` + `status` + `expireAt`.
 
 📘 **test mode بيتجاهل `allowedMethods`** وبيعرض كارت ومحفظة دايماً.
-الحزمة: `cancelPayment()` بيعمل abandon، وبعدين `GET …/payment`. والـ `ABANDONED` بيتحوّل لـ `cancelled`. ولو الدفع اتأكد بعد كده، بيتسجل late payment.
-❓ هل الـ session بعد ما اتعملها abandon لسه ينفع تتدفع؟ (E-K4)
+الحزمة: `cancelPayment()` بيحاول يترك الـ session (abandon)، وبعدين `GET …/payment` (ده اللي بيقرر). والـ `ABANDONED` بيتحوّل لـ `cancelled`. ولو الـ abandon فشل، بيتسجل log `warning` (`payment.kashier_abandon_failed`)، والـ session المفتوحة بتتلغي محلياً بس. ولو الدفع اتأكد بعد كده، بيتسجل late payment.
+❓ الشكل الصح لطلب الـ abandon (مستنيين رد دعم Kashier، E-K4)
+❓ هل الـ session المتروكة (abandoned) لسه ينفع تتدفع؟ ولا الـ abandon مجرد علامة؟ (E-K4)
 ❓ لو المحاولة فشلت وجرّبت تاني، دي نفس الـ session ولا جديدة؟ وبيطلع `transactionId` جديد؟ (E-K3)
 
 ## 3. صفحة الرجوع (merchantRedirect)

@@ -20,6 +20,8 @@ final class FakeKashierClient implements KashierClientInterface, KashierSessionC
     public array $orders = [];
     /** @var list<string> session ids sent to abandonPaymentSession */
     public array $abandoned = [];
+    /** Thrown by abandonPaymentSession (after recording the call), leaving the session as it is. */
+    public ?KashierApiException $abandonFailure = null;
 
     public function createPaymentSession(array $payload): array
     {
@@ -58,6 +60,10 @@ final class FakeKashierClient implements KashierClientInterface, KashierSessionC
     public function abandonPaymentSession(string $sessionId): array
     {
         $this->abandoned[] = $sessionId;
+        if ($this->abandonFailure !== null) {
+            throw $this->abandonFailure;
+        }
+
         if (in_array($this->sessionStatus, ['CREATED', 'OPENED', 'PENDING'], true)) {
             $this->sessionStatus = 'ABANDONED';
         }

@@ -11,6 +11,7 @@ use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Events\LatePaymentReceived;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentClosed;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentSucceeded;
+use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierApiException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierStatusMapper;
@@ -27,6 +28,8 @@ use Mo7mud\LaravelPaymentGateway\Tests\Support\KashierPayloads;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Stringable;
 
 /** R16: cancelling an open payment. */
 final class CancellationTest extends TestCase
@@ -34,6 +37,7 @@ final class CancellationTest extends TestCase
     private FakeKashierClient $client;
     private InMemoryPaymentRepository $payments;
     private PaymentService $service;
+    private AbstractLogger $logger;
     /** @var list<object> */
     private array $dispatched = [];
 
@@ -43,6 +47,15 @@ final class CancellationTest extends TestCase
 
         $this->client = new FakeKashierClient();
         $this->payments = new InMemoryPaymentRepository();
+        $this->logger = new class () extends AbstractLogger {
+            /** @var list<string> */
+            public array $messages = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->messages[] = (string) $message;
+            }
+        };
 
         $events = new Dispatcher();
         $events->setTransactionManagerResolver(static fn () => null);
@@ -57,6 +70,7 @@ final class CancellationTest extends TestCase
                     new KashierSignatureVerifier(KashierPayloads::API_KEY),
                     new KashierStatusMapper(),
                     ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/return'],
+                    $this->logger,
                 ),
                 new MockGateway(),
             ]),
@@ -87,6 +101,24 @@ final class CancellationTest extends TestCase
 
         self::assertTrue((bool) $this->payments->findByReference('ORD-C1')?->late_payment);
         self::assertTrue($this->wasDispatched(LatePaymentReceived::class));
+    }
+
+    public function test_a_rejected_kashier_abandon_still_cancels_after_reading_the_session(): void
+    {
+        // E-K4: what Kashier test answers to the documented abandon call.
+        $this->client->abandonFailure = new KashierApiException("This merchant is not found on kashier, example 'MID-XX-XX'", 404);
+
+        $this->create('kashier', 'ORD-C5');
+        self::assertSame(PaymentStatus::CANCELLED, $this->service->cancelPayment('ORD-C5'));
+        self::assertSame(['SESSION-1'], $this->client->abandoned);
+        self::assertContains('payment.kashier_abandon_failed', $this->logger->messages);
+        self::assertTrue($this->wasDispatched(PaymentClosed::class));
+
+        // The session read still wins: a paid session stays paid.
+        $this->create('kashier', 'ORD-C6');
+        $this->client->sessionStatus = 'PAID';
+        self::assertSame(PaymentStatus::SUCCEEDED, $this->service->cancelPayment('ORD-C6'));
+        self::assertFalse((bool) $this->payments->findByReference('ORD-C6')?->late_payment);
     }
 
     public function test_a_payment_captured_before_the_cancel_stays_paid(): void

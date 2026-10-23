@@ -205,10 +205,10 @@ if ($status->isPaid()) {
 ```
 - **إمتى بيشتغل:** الدفع لازم يكون `pending` أو `processing` أو `creation_failed`، وبيتقفل `cancelled` وبيطلع `PaymentClosed`. ولو الدفع مش مفتوح، بيرجع حالته زي ما هي من غير أي تغيير
 - **`initiating`:** بيرمي `PaymentCreationInProgressException`، فحاول تاني بعد شوية
-- **Kashier:** بيعمل abandon للـ session (`PATCH`)، وبعدين بيقرا حالتها. لو كانت اتدفعت قبلها، الدفع بيفضل مدفوع (مش late)
+- **Kashier:** بيحاول يترك الـ session (abandon بـ `PATCH`، ومفيش cancel في Kashier)، وبعدين بيقرا حالتها. لو كانت اتدفعت قبلها، الدفع بيفضل مدفوع (مش late). ولو الـ abandon فشل (على test بيفشل دايماً، E-K4)، بيتسجل log `warning` (`payment.kashier_abandon_failed`) والإلغاء بيبقى محلي بس، فالصفحة ممكن تفضل تقبل الدفع لحد ما مدتها تخلص
 - **Fawaterk:** مفيش API للإلغاء، فالإلغاء محلي بس، والصفحة أو كود فوري بيفضل ينفع يتدفع لحد ما مدته تخلص
 - **الدفع المتأخر:** أي دفع بيتأكد بعد الإلغاء بيتسجل `late_payment` ويطلع `LatePaymentReceived` + `PaymentSucceeded(latePayment: true)`
-- **لو البوابة فشلت:** الـ exception بيترمي ومفيش حاجة بتتغيّر، فحاول تاني
+- **لو البوابة فشلت:** لو قراءة الحالة نفسها فشلت، الـ exception بيترمي ومفيش حاجة بتتغيّر، فحاول تاني
 
 ## 11. الاختبار
 - `Testing\MockGateway` + `InMemory*Repository` + `InMemoryTransactionRunner` = اختبارات للتطبيق من غير DB ولا HTTP (الأمثلة في `tests/Unit/Webhooks/WebhookIdempotencyTest.php`)
