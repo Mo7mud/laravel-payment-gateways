@@ -1,7 +1,7 @@
 @extends(config('payment-gateway.admin.layout', 'layouts.app'))
 
 @section(config('payment-gateway.admin.title_section', 'page-title'))
-    <h1 class="mb-0">{{ __('Payment Gateway Package Settings') }}</h1>
+    <h1 class="mb-0">{{ __('payment-gateway::admin.title') }}</h1>
 @endsection
 
 @section(config('payment-gateway.admin.content_section', 'main'))
@@ -16,7 +16,7 @@
 
         @if($errors->any())
             <div class="alert alert-danger" role="alert">
-                <p class="mb-1">{{ __('Settings were not saved. Fix the following and try again:') }}</p>
+                <p class="mb-1">{{ __('payment-gateway::admin.messages.invalid') }}</p>
                 <ul class="mb-0">
                     @foreach($errors->all() as $message)
                         <li>{{ $message }}</li>
@@ -32,14 +32,14 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex align-items-center justify-content-between">
                         <div>
-                            <h4 class="mb-1">{{ $package->display_name }}</h4>
-                            <small class="text-muted">{{ __('Managed by the reusable payment package') }}</small>
+                            <h4 class="mb-1">{{ __($package->display_name) }}</h4>
+                            <small class="text-muted">{{ __('payment-gateway::admin.package_hint') }}</small>
                         </div>
                         <label class="custom-switch m-0">
                             <input type="hidden" name="packages[{{ $package->package }}]" value="0">
                             <input type="checkbox" name="packages[{{ $package->package }}]" value="1" class="custom-switch-input" {{ $package->enabled ? 'checked' : '' }}>
                             <span class="custom-switch-indicator"></span>
-                            <span class="custom-switch-description">{{ __('Enable Package') }}</span>
+                            <span class="custom-switch-description">{{ __('payment-gateway::admin.enable_package') }}</span>
                         </label>
                     </div>
 
@@ -49,14 +49,14 @@
                             <div class="card border mb-4">
                                 <div class="card-header d-flex align-items-center justify-content-between">
                                     <div>
-                                        <h5 class="mb-1">{{ $gateway->display_name }}</h5>
+                                        <h5 class="mb-1">{{ __($gateway->display_name) }}</h5>
                                         <small class="text-muted">{{ $gateway->gateway }}</small>
                                     </div>
                                     <label class="custom-switch m-0">
                                         <input type="hidden" name="gateways[{{ $gateway->id }}]" value="0">
                                         <input type="checkbox" name="gateways[{{ $gateway->id }}]" value="1" class="custom-switch-input" {{ $gateway->enabled ? 'checked' : '' }}>
                                         <span class="custom-switch-indicator"></span>
-                                        <span class="custom-switch-description">{{ __('Enable') }}</span>
+                                        <span class="custom-switch-description">{{ __('payment-gateway::admin.enable_gateway') }}</span>
                                     </label>
                                 </div>
 
@@ -69,7 +69,7 @@
 
                                     @foreach($structured['credentials'] as $mode => $credentialFields)
                                         @if($credentialFields !== [])
-                                            <h6 class="mt-2 mb-3">{{ $mode === 'live' ? __('Live credentials') : __('Test credentials') }}</h6>
+                                            <h6 class="mt-2 mb-3">{{ __('payment-gateway::admin.credentials.'.$mode) }}</h6>
                                             <div class="row">
                                                 @foreach($credentialFields as $field)
                                                     @include('payment-gateway::admin.partials.field', ['field' => $field])
@@ -78,7 +78,7 @@
                                         @endif
                                     @endforeach
 
-                                    <h6 class="mt-2 mb-3">{{ __('Settings') }}</h6>
+                                    <h6 class="mt-2 mb-3">{{ __('payment-gateway::admin.settings') }}</h6>
                                     <div class="row">
                                         @foreach($structured['settings'] as $field)
                                             @include('payment-gateway::admin.partials.field', ['field' => $field])
@@ -86,20 +86,20 @@
 
                                         <div class="col-lg-6">
                                             <div class="form-group">
-                                                <label>{{ __('Webhook URL') }}</label>
+                                                <label>{{ __('payment-gateway::admin.webhook_url') }}</label>
                                                 <div class="input-group">
                                                     <input type="text" class="form-control" value="{{ $values[$gateway->gateway . '.webhook_url'] ?? '' }}" readonly>
-                                                    <div class="input-group-append"><button class="btn btn-outline-primary" type="button" onclick="navigator.clipboard.writeText(this.closest('.input-group').querySelector('input').value)"><i class="fas fa-copy"></i></button></div>
+                                                    <div class="input-group-append"><button class="btn btn-outline-primary" type="button" title="{{ __('payment-gateway::admin.copy') }}" aria-label="{{ __('payment-gateway::admin.copy') }}" onclick="navigator.clipboard.writeText(this.closest('.input-group').querySelector('input').value)"><i class="fas fa-copy"></i></button></div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div class="col-lg-6">
                                             <div class="form-group">
-                                                <label>{{ __('Return URL') }}</label>
+                                                <label>{{ __('payment-gateway::admin.return_url') }}</label>
                                                 <div class="input-group">
                                                     <input type="text" class="form-control" value="{{ $values[$gateway->gateway . '.return_url'] ?? '' }}" readonly>
-                                                    <div class="input-group-append"><button class="btn btn-outline-primary" type="button" onclick="navigator.clipboard.writeText(this.closest('.input-group').querySelector('input').value)"><i class="fas fa-copy"></i></button></div>
+                                                    <div class="input-group-append"><button class="btn btn-outline-primary" type="button" title="{{ __('payment-gateway::admin.copy') }}" aria-label="{{ __('payment-gateway::admin.copy') }}" onclick="navigator.clipboard.writeText(this.closest('.input-group').querySelector('input').value)"><i class="fas fa-copy"></i></button></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -112,7 +112,7 @@
             @endforeach
 
             <div class="text-right">
-                <button type="submit" class="btn btn-primary">{{ __('Save and Apply') }}</button>
+                <button type="submit" class="btn btn-primary">{{ __('payment-gateway::admin.save') }}</button>
             </div>
         </form>
     </div>

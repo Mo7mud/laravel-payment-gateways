@@ -135,39 +135,41 @@ return [
         // API base URLs are deliberately not editable here: changing them would
         // send credentials to another host. Set them in the deployment .env.
         // Any field whose key contains BASE_URL is ignored even if added below.
+        // label, display_name and select options are translation keys
+        // (lang/*/admin.php); a value without a translation is shown as is.
         'packages' => [
             'mo7mud/laravel-payment-gateway' => [
-                'display_name' => 'mo7mud/laravel-payment-gateway',
+                'display_name' => 'payment-gateway::admin.packages.core',
                 'gateways' => [
                     'fawaterk' => [
-                        'display_name' => 'Fawaterk',
+                        'display_name' => 'payment-gateway::admin.gateways.fawaterk',
                         'sort_order' => 20,
                         // test/live switch: picks the active credential set; the other set stays saved.
                         'mode' => [
-                            'env' => 'FAWATERK_ENVIRONMENT', 'label' => 'Environment', 'default' => 'test',
-                            'options' => ['test' => 'Test', 'live' => 'Live'],
+                            'env' => 'FAWATERK_ENVIRONMENT', 'label' => 'payment-gateway::admin.fields.environment', 'default' => 'test',
+                            'options' => ['test' => 'payment-gateway::admin.modes.test', 'live' => 'payment-gateway::admin.modes.live'],
                         ],
                         // One value per mode. legacy_env mirrors the active value for older configs.
                         'credentials' => [
                             'client_id' => [
-                                'label' => 'OAuth Client ID', 'type' => 'text', 'legacy_env' => 'FAWATERK_CLIENT_ID',
+                                'label' => 'payment-gateway::admin.fields.client_id', 'type' => 'text', 'legacy_env' => 'FAWATERK_CLIENT_ID',
                                 'env' => ['test' => 'FAWATERK_TEST_CLIENT_ID', 'live' => 'FAWATERK_LIVE_CLIENT_ID'],
                             ],
                             'client_secret' => [
-                                'label' => 'OAuth Client Secret', 'type' => 'secret', 'legacy_env' => 'FAWATERK_CLIENT_SECRET',
+                                'label' => 'payment-gateway::admin.fields.client_secret', 'type' => 'secret', 'legacy_env' => 'FAWATERK_CLIENT_SECRET',
                                 'env' => ['test' => 'FAWATERK_TEST_CLIENT_SECRET', 'live' => 'FAWATERK_LIVE_CLIENT_SECRET'],
                             ],
                             'vendor_api_key' => [
-                                'label' => 'Vendor API Key (Webhook HMAC)', 'type' => 'secret', 'legacy_env' => 'FAWATERK_VENDOR_API_KEY',
+                                'label' => 'payment-gateway::admin.fields.vendor_api_key', 'type' => 'secret', 'legacy_env' => 'FAWATERK_VENDOR_API_KEY',
                                 'env' => ['test' => 'FAWATERK_TEST_VENDOR_API_KEY', 'live' => 'FAWATERK_LIVE_VENDOR_API_KEY'],
                             ],
                         ],
                         'env' => [
-                            'FAWATERK_SUCCESS_URL' => ['label' => 'Success URL', 'type' => 'url'],
-                            'FAWATERK_FAIL_URL' => ['label' => 'Fail URL', 'type' => 'url'],
-                            'FAWATERK_PENDING_URL' => ['label' => 'Pending URL', 'type' => 'url'],
-                            'FAWATERK_BACK_URL' => ['label' => 'Back URL', 'type' => 'url'],
-                            'FAWATERK_TIMEOUT' => ['label' => 'HTTP Timeout (seconds)', 'type' => 'number', 'min' => 5, 'max' => 60],
+                            'FAWATERK_SUCCESS_URL' => ['label' => 'payment-gateway::admin.fields.success_url', 'type' => 'url'],
+                            'FAWATERK_FAIL_URL' => ['label' => 'payment-gateway::admin.fields.fail_url', 'type' => 'url'],
+                            'FAWATERK_PENDING_URL' => ['label' => 'payment-gateway::admin.fields.pending_url', 'type' => 'url'],
+                            'FAWATERK_BACK_URL' => ['label' => 'payment-gateway::admin.fields.back_url', 'type' => 'url'],
+                            'FAWATERK_TIMEOUT' => ['label' => 'payment-gateway::admin.fields.http_timeout', 'type' => 'number', 'min' => 5, 'max' => 60],
                         ],
                         'extra_env' => [],
                         'routes' => [
@@ -188,37 +190,37 @@ return [
                         ],
                     ],
                     'kashier' => [
-                        'display_name' => 'Kashier',
+                        'display_name' => 'payment-gateway::admin.gateways.kashier',
                         'sort_order' => 10,
                         'mode' => [
-                            'env' => 'KASHIER_ENVIRONMENT', 'label' => 'Environment', 'default' => 'test',
-                            'options' => ['test' => 'Test', 'live' => 'Live'],
+                            'env' => 'KASHIER_ENVIRONMENT', 'label' => 'payment-gateway::admin.fields.environment', 'default' => 'test',
+                            'options' => ['test' => 'payment-gateway::admin.modes.test', 'live' => 'payment-gateway::admin.modes.live'],
                         ],
                         'credentials' => [
                             'merchant_id' => [
-                                'label' => 'Merchant ID', 'type' => 'text', 'pattern' => '/^[A-Za-z0-9_-]+$/', 'legacy_env' => 'KASHIER_MERCHANT_ID',
+                                'label' => 'payment-gateway::admin.fields.merchant_id', 'type' => 'text', 'pattern' => '/^[A-Za-z0-9_-]+$/', 'legacy_env' => 'KASHIER_MERCHANT_ID',
                                 'env' => ['test' => 'KASHIER_TEST_MERCHANT_ID', 'live' => 'KASHIER_LIVE_MERCHANT_ID'],
                             ],
                             'payment_api_key' => [
-                                'label' => 'Payment API Key', 'type' => 'secret', 'legacy_env' => 'KASHIER_PAYMENT_API_KEY',
+                                'label' => 'payment-gateway::admin.fields.payment_api_key', 'type' => 'secret', 'legacy_env' => 'KASHIER_PAYMENT_API_KEY',
                                 'env' => ['test' => 'KASHIER_TEST_PAYMENT_API_KEY', 'live' => 'KASHIER_LIVE_PAYMENT_API_KEY'],
                             ],
                             'secret_key' => [
-                                'label' => 'Secret Key', 'type' => 'secret', 'legacy_env' => 'KASHIER_SECRET_KEY',
+                                'label' => 'payment-gateway::admin.fields.secret_key', 'type' => 'secret', 'legacy_env' => 'KASHIER_SECRET_KEY',
                                 'env' => ['test' => 'KASHIER_TEST_SECRET_KEY', 'live' => 'KASHIER_LIVE_SECRET_KEY'],
                             ],
                         ],
                         'env' => [
-                            'KASHIER_ALLOWED_METHODS' => ['label' => 'Allowed Methods', 'type' => 'text', 'pattern' => '/^[a-z_]+(,[a-z_]+)*$/'],
-                            'KASHIER_PAYMENT_TYPE' => ['label' => 'Payment Type', 'type' => 'select', 'options' => ['credit' => 'Credit']],
-                            'KASHIER_DEFAULT_METHOD' => ['label' => 'Default Method', 'type' => 'text', 'pattern' => '/^[a-z_]+$/'],
-                            'KASHIER_REDIRECT_METHOD' => ['label' => 'Redirect Method', 'type' => 'select', 'options' => ['get' => 'GET', 'post' => 'POST']],
-                            'KASHIER_DISPLAY' => ['label' => 'Display Language', 'type' => 'select', 'options' => ['ar' => 'Arabic', 'en' => 'English']],
-                            'KASHIER_ENABLE_3DS' => ['label' => 'Enable 3DS', 'type' => 'boolean'],
-                            'KASHIER_FAILURE_REDIRECT' => ['label' => 'Failure Redirect', 'type' => 'boolean'],
-                            'KASHIER_MAX_FAILURE_ATTEMPTS' => ['label' => 'Max Failure Attempts', 'type' => 'number', 'min' => 1, 'max' => 10],
-                            'KASHIER_EXPIRE_MINUTES' => ['label' => 'Checkout Expiry (minutes)', 'type' => 'number', 'min' => 5, 'max' => 1440],
-                            'KASHIER_HTTP_TIMEOUT' => ['label' => 'HTTP Timeout (seconds)', 'type' => 'number', 'min' => 5, 'max' => 60],
+                            'KASHIER_ALLOWED_METHODS' => ['label' => 'payment-gateway::admin.fields.allowed_methods', 'type' => 'text', 'pattern' => '/^[a-z_]+(,[a-z_]+)*$/'],
+                            'KASHIER_PAYMENT_TYPE' => ['label' => 'payment-gateway::admin.fields.payment_type', 'type' => 'select', 'options' => ['credit' => 'payment-gateway::admin.options.credit']],
+                            'KASHIER_DEFAULT_METHOD' => ['label' => 'payment-gateway::admin.fields.default_method', 'type' => 'text', 'pattern' => '/^[a-z_]+$/'],
+                            'KASHIER_REDIRECT_METHOD' => ['label' => 'payment-gateway::admin.fields.redirect_method', 'type' => 'select', 'options' => ['get' => 'payment-gateway::admin.options.get', 'post' => 'payment-gateway::admin.options.post']],
+                            'KASHIER_DISPLAY' => ['label' => 'payment-gateway::admin.fields.display_language', 'type' => 'select', 'options' => ['ar' => 'payment-gateway::admin.options.arabic', 'en' => 'payment-gateway::admin.options.english']],
+                            'KASHIER_ENABLE_3DS' => ['label' => 'payment-gateway::admin.fields.enable_3ds', 'type' => 'boolean'],
+                            'KASHIER_FAILURE_REDIRECT' => ['label' => 'payment-gateway::admin.fields.failure_redirect', 'type' => 'boolean'],
+                            'KASHIER_MAX_FAILURE_ATTEMPTS' => ['label' => 'payment-gateway::admin.fields.max_failure_attempts', 'type' => 'number', 'min' => 1, 'max' => 10],
+                            'KASHIER_EXPIRE_MINUTES' => ['label' => 'payment-gateway::admin.fields.expire_minutes', 'type' => 'number', 'min' => 5, 'max' => 1440],
+                            'KASHIER_HTTP_TIMEOUT' => ['label' => 'payment-gateway::admin.fields.http_timeout', 'type' => 'number', 'min' => 5, 'max' => 60],
                         ],
                         'extra_env' => [],
                         'routes' => [

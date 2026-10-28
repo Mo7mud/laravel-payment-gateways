@@ -130,10 +130,15 @@ final class PaymentServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'payment-gateway-migrations');
+
+            $this->publishes([
+                __DIR__.'/../lang' => lang_path('vendor/payment-gateway'),
+            ], 'payment-gateway-translations');
         }
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'payment-gateway');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'payment-gateway');
 
         if ($this->flag('payment-gateway.routes.enabled', true)) {
             $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');

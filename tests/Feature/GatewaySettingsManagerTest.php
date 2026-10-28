@@ -191,6 +191,39 @@ final class GatewaySettingsManagerTest extends TestCase
             ->assertDontSee('stored-secret');
     }
 
+    public function test_labels_options_and_messages_follow_the_locale(): void
+    {
+        $this->app->setLocale('ar');
+        config()->set('payment-gateway.admin.packages.mo7mud/laravel-payment-gateway.gateways.kashier.extra_env', [
+            'KASHIER_DESCRIPTION' => ['label' => 'Custom label', 'type' => 'text'],
+        ]);
+        $manager = $this->manager();
+        $kashier = $manager->gateways()['kashier'];
+
+        $this->assertSame('كاشير', $kashier['display_name']);
+        $this->assertSame('البيئة', $kashier['mode']['label']);
+        $this->assertSame(['test' => 'تجريبي', 'live' => 'حقيقي'], $kashier['mode']['options']);
+        $this->assertSame('معرّف التاجر (Merchant ID)', $kashier['credentials']['live']['KASHIER_LIVE_MERCHANT_ID']['label']);
+        // A label without a translation line is shown as written.
+        $this->assertSame('Custom label', $kashier['settings']['KASHIER_DESCRIPTION']['label']);
+
+        try {
+            $manager->save(['env' => ['KASHIER_LIVE_MERCHANT_ID' => 'bad id!']]);
+            $this->fail('An invalid merchant id must be rejected.');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('معرّف التاجر (Merchant ID) (حقيقي)', $e->errors()['env.KASHIER_LIVE_MERCHANT_ID'][0]);
+        }
+
+        config()->set('payment-gateway.admin.permission', null);
+        try {
+            $manager->authorize($this->user(1));
+            $this->fail('A missing permission must lock the settings.');
+        } catch (HttpException $e) {
+            $this->assertSame(__('payment-gateway::admin.messages.locked'), $e->getMessage());
+            $this->assertStringStartsWith('إعدادات بوابات الدفع مقفلة', $e->getMessage());
+        }
+    }
+
     private function manager(): GatewaySettingsManager
     {
         return $this->app->make(GatewaySettingsManager::class);

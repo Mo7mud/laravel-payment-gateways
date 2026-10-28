@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Mo7mud\LaravelPaymentGateway\Admin\GatewaySettingsManager;
 use Mo7mud\LaravelPaymentGateway\Admin\PaymentIntegrationService;
+use Mo7mud\LaravelPaymentGateway\Support\Translation;
 
 /** Built-in Blade page; all logic lives in GatewaySettingsManager. */
 final class PaymentGatewaySettingsController extends Controller
@@ -55,7 +56,7 @@ final class PaymentGatewaySettingsController extends Controller
         ]);
 
         $redirect = redirect()->route('payment-gateway.admin.settings')
-            ->with('success', 'Payment gateway settings saved.');
+            ->with('success', Translation::get('payment-gateway::admin.messages.saved'));
 
         $warning = $result->firstWarning();
 

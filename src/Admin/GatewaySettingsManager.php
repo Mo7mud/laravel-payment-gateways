@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Mo7mud\LaravelPaymentGateway\Models\PaymentIntegrationGateway;
 use Mo7mud\LaravelPaymentGateway\Models\PaymentIntegrationPackage;
+use Mo7mud\LaravelPaymentGateway\Support\Translation;
 use Throwable;
 
 /**
@@ -22,7 +23,8 @@ use Throwable;
  * current values (secrets masked), test/live credential sets, webhook/return
  * URLs, package and gateway switches, saving and access control. Any admin
  * panel (Blade, Filament, ...) renders its own form from this data; nothing
- * here returns a view or a response.
+ * here returns a view or a response. Labels, options, display names and
+ * messages come translated for the current locale.
  */
 final class GatewaySettingsManager
 {
@@ -61,7 +63,7 @@ final class GatewaySettingsManager
     {
         $permission = $this->permission();
         if ($permission === null) {
-            abort(403, 'Payment gateway settings are locked. Set PAYMENT_GATEWAY_ADMIN_PERMISSION to a Gate ability.');
+            abort(403, Translation::get('payment-gateway::admin.messages.locked'));
         }
 
         if ($user === null) {
@@ -109,7 +111,7 @@ final class GatewaySettingsManager
                 $gateways[$gatewayKey] = [
                     'package' => (string) $packageKey,
                     'gateway' => $gatewayKey,
-                    'display_name' => (string) ($gatewayConfig['display_name'] ?? ucfirst($gatewayKey)),
+                    'display_name' => Translation::get((string) ($gatewayConfig['display_name'] ?? ucfirst($gatewayKey))),
                     'sort_order' => (int) ($gatewayConfig['sort_order'] ?? 0),
                     'id' => $switch['id'] ?? null,
                     'enabled' => (bool) ($switch['enabled'] ?? false),
@@ -148,10 +150,10 @@ final class GatewaySettingsManager
                 'package' => $entry['package'],
                 'gateway' => $entry['gateway'],
                 'group' => $entry['group'],
-                'label' => (string) ($field['label'] ?? $key),
+                'label' => Translation::get((string) ($field['label'] ?? $key)),
                 'type' => $type,
                 'secret' => $type === 'secret',
-                'options' => $type === 'select' ? array_map('strval', (array) ($field['options'] ?? [])) : [],
+                'options' => $type === 'select' ? array_map(static fn ($option): string => Translation::get((string) $option), (array) ($field['options'] ?? [])) : [],
                 'min' => $type === 'number' ? (int) ($field['min'] ?? 0) : null,
                 'max' => $type === 'number' ? (int) ($field['max'] ?? 100000) : null,
                 'pattern' => isset($field['pattern']) ? (string) $field['pattern'] : null,
@@ -206,13 +208,13 @@ final class GatewaySettingsManager
         return $this->integrations->packages()
             ->map(static fn (PaymentIntegrationPackage $package): array => [
                 'package' => (string) $package->package,
-                'display_name' => (string) $package->display_name,
+                'display_name' => Translation::get((string) $package->display_name),
                 'enabled' => (bool) $package->enabled,
                 'gateways' => $package->gateways
                     ->map(static fn (PaymentIntegrationGateway $gateway): array => [
                         'id' => (int) $gateway->id,
                         'gateway' => (string) $gateway->gateway,
-                        'display_name' => (string) $gateway->display_name,
+                        'display_name' => Translation::get((string) $gateway->display_name),
                         'enabled' => (bool) $gateway->enabled,
                         'sort_order' => (int) $gateway->sort_order,
                     ])
@@ -259,7 +261,7 @@ final class GatewaySettingsManager
     public function save(array $input, array $context = []): SettingsSaveResult
     {
         $definitions = $this->definitions();
-        $validated = Validator::make($input, $this->rules())->validate();
+        $validated = Validator::make($input, $this->rules(), [], $this->attributes($definitions))->validate();
 
         $environmentValues = [];
         foreach ((array) ($validated['env'] ?? []) as $key => $value) {
@@ -360,20 +362,43 @@ final class GatewaySettingsManager
                 // Rebuilding the cache inside this request would bake in the old
                 // values (the environment is immutable once loaded), so clear it.
                 Artisan::call('config:clear');
-                $warnings[] = 'Configuration cache was cleared. Run "php artisan config:cache" to rebuild it.';
+                $warnings[] = Translation::get('payment-gateway::admin.warnings.config_cache_cleared');
             }
         } catch (Throwable $e) {
             report($e);
-            $warnings[] = 'Settings were saved, but the configuration cache could not be cleared. Run "php artisan config:clear".';
+            $warnings[] = Translation::get('payment-gateway::admin.warnings.config_cache_failed');
         }
 
         try {
             Artisan::call('queue:restart');
         } catch (Throwable) {
-            $warnings[] = 'Settings were saved. Restart queue workers so they use the new values.';
+            $warnings[] = Translation::get('payment-gateway::admin.warnings.queue_restart');
         }
 
         return $warnings;
+    }
+
+    /**
+     * Translated field labels for validation messages; test/live credentials
+     * carry their mode so both sets stay distinguishable.
+     *
+     * @param  array<string, array{package: string, gateway: string, group: string, name: string|null, field: array<string, mixed>, legacy: string|null}>  $definitions
+     * @return array<string, string>
+     */
+    private function attributes(array $definitions): array
+    {
+        $attributes = [];
+        foreach ($definitions as $key => $entry) {
+            $label = Translation::get((string) ($entry['field']['label'] ?? $key));
+            $attributes['env.'.$key] = in_array($entry['group'], self::MODES, true)
+                ? Translation::get('payment-gateway::admin.attribute_with_mode', [
+                    'label' => $label,
+                    'mode' => Translation::get('payment-gateway::admin.modes.'.$entry['group']),
+                ])
+                : $label;
+        }
+
+        return $attributes;
     }
 
     private function permission(): ?string
@@ -486,11 +511,11 @@ final class GatewaySettingsManager
 
                 if (is_array($mode) && is_string($mode['env'] ?? null)) {
                     $options = array_intersect_key(
-                        (array) ($mode['options'] ?? ['test' => 'Test', 'live' => 'Live']),
+                        (array) ($mode['options'] ?? ['test' => 'payment-gateway::admin.modes.test', 'live' => 'payment-gateway::admin.modes.live']),
                         array_flip(self::MODES),
                     );
                     $add($mode['env'], $packageKey, $gatewayKey, self::GROUP_MODE, null, [
-                        'label' => $mode['label'] ?? 'Environment',
+                        'label' => $mode['label'] ?? 'payment-gateway::admin.fields.environment',
                         'type' => 'select',
                         'options' => $options,
                     ], null);

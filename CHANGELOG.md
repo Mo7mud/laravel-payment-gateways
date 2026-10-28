@@ -15,6 +15,14 @@ All notable changes to this package are documented here. The format follows
   capture is a late payment, as with gateways without a cancellation API.
 
 ### Added
+- Translations (`lang/en`, `lang/ar`) under the `payment-gateway` namespace,
+  publishable with `--tag=payment-gateway-translations`. The settings page,
+  the 403 message, save warnings and the saved message are translated.
+  Config `label`, `display_name` and select options in `admin.packages` are
+  now translation keys (`payment-gateway::admin.*`); a value without a
+  translation line is shown as written, so published configs keep working.
+  `GatewaySettingsManager` returns labels, options and display names already
+  translated, and validation errors name fields by their translated label.
 - `Admin\GatewaySettingsManager`: UI-agnostic settings API for any admin panel
   (`fields()`, `gateways()`, `values()` with secrets masked, `packages()`,
   `rules()`, `save()` returning `Admin\SettingsSaveResult`, `canAccess()`,
