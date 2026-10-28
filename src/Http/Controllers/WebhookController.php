@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Log;
 use Mo7mud\LaravelPaymentGateway\DTOs\WebhookRequest;
 use Mo7mud\LaravelPaymentGateway\Exceptions\GatewayApiException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\GatewayReferenceMismatchException;
-use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentGatewayExceptionInterface;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentAmountMismatchException;
+use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentGatewayExceptionInterface;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentNotFoundException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\UnsupportedPaymentOperationException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
@@ -43,7 +43,7 @@ final class WebhookController extends Controller
         ?string $type = null,
     ): Response {
         $gateway = strtolower($gateway);
-        if (!$gateways->has($gateway)) {
+        if (! $gateways->has($gateway)) {
             abort(404);
         }
 
@@ -54,7 +54,7 @@ final class WebhookController extends Controller
                 new WebhookRequest(
                     $payload,
                     $request->headers->all(),
-                    new DateTimeImmutable(),
+                    new DateTimeImmutable,
                     $type,
                     (string) $request->getContent(),
                     $request->query->all(),
@@ -114,7 +114,7 @@ final class WebhookController extends Controller
         }
 
         if ($result->duplicate) {
-            return response('', (int) config('payment-gateway.webhooks.duplicate_status.' . $gateway, 200));
+            return response('', (int) config('payment-gateway.webhooks.duplicate_status.'.$gateway, 200));
         }
 
         return response('', 200);

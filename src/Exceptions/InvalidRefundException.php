@@ -7,6 +7,4 @@ namespace Mo7mud\LaravelPaymentGateway\Exceptions;
 use InvalidArgumentException;
 
 /** A refund request that violates a business rule (amount, state, currency). */
-final class InvalidRefundException extends InvalidArgumentException implements PaymentGatewayExceptionInterface
-{
-}
+final class InvalidRefundException extends InvalidArgumentException implements PaymentGatewayExceptionInterface {}

@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use Mo7mud\LaravelPaymentGateway\Contracts\DeclaresReservedMetadataKeys;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentGatewayInterface;
-use Mo7mud\LaravelPaymentGateway\Contracts\PaymentRefundInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReconciliationInterface;
+use Mo7mud\LaravelPaymentGateway\Contracts\PaymentRefundInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReturnHandlerInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentStatusProviderInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\WebhookHandlerInterface;
@@ -32,15 +32,7 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\GatewayCapabilities;
  * In-memory test double (like Http::fake()). Not registered by default; add it
  * to payment-gateway.gateways only in tests.
  */
-class MockGateway implements
-    DeclaresReservedMetadataKeys,
-    PaymentGatewayInterface,
-    PaymentCreatorInterface,
-    PaymentStatusProviderInterface,
-    PaymentRefundInterface,
-    PaymentReconciliationInterface,
-    PaymentReturnHandlerInterface,
-    WebhookHandlerInterface
+class MockGateway implements DeclaresReservedMetadataKeys, PaymentCreatorInterface, PaymentGatewayInterface, PaymentReconciliationInterface, PaymentRefundInterface, PaymentReturnHandlerInterface, PaymentStatusProviderInterface, WebhookHandlerInterface
 {
     /** @var array<string, PaymentStatus> */
     private array $statuses = [];
@@ -94,7 +86,7 @@ class MockGateway implements
             gatewayReference: $request->gatewayReference ?? 'mock-'.$request->paymentReference,
             gatewayTransactionId: $request->gatewayTransactionId ?? 'mock-tx-'.$request->paymentReference,
             gatewayStatus: strtoupper($status->value),
-            occurredAt: new DateTimeImmutable(),
+            occurredAt: new DateTimeImmutable,
         );
     }
 
@@ -115,7 +107,7 @@ class MockGateway implements
             amount: $request->amount,
             refundReference: 'mock-refund-'.$request->paymentReference,
             gatewayStatus: 'SUCCEEDED',
-            occurredAt: new DateTimeImmutable(),
+            occurredAt: new DateTimeImmutable,
             metadata: $request->metadata,
         );
     }
@@ -145,7 +137,7 @@ class MockGateway implements
             gatewayReference: $request->payload['gateway_reference'] ?? null,
             gatewayTransactionId: $request->payload['gateway_transaction_id'] ?? null,
             gatewayStatus: $request->payload['gateway_status'] ?? null,
-            occurredAt: new DateTimeImmutable(),
+            occurredAt: new DateTimeImmutable,
             metadata: $request->payload['metadata'] ?? [],
             rawPayload: $request->payload,
         );

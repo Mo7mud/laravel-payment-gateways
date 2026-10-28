@@ -12,13 +12,12 @@ namespace Mo7mud\LaravelPaymentGateway\DTOs;
 final readonly class GatewayRefundList
 {
     /**
-     * @param list<GatewayRefundRecord> $refunds
-     * @param bool $complete true when every page was read, so a local refund
-     *        missing from the list can be reported as unknown to the gateway
+     * @param  list<GatewayRefundRecord>  $refunds
+     * @param  bool  $complete  true when every page was read, so a local refund
+     *                          missing from the list can be reported as unknown to the gateway
      */
     public function __construct(
         public array $refunds,
         public bool $complete,
-    ) {
-    }
+    ) {}
 }

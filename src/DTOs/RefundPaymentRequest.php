@@ -14,6 +14,5 @@ final readonly class RefundPaymentRequest
         public ?string $reason = null,
         public ?string $idempotencyKey = null,
         public array $metadata = [],
-    ) {
-    }
+    ) {}
 }

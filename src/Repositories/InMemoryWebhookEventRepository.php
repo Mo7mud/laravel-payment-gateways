@@ -21,7 +21,7 @@ final class InMemoryWebhookEventRepository implements WebhookEventRepositoryInte
             return null;
         }
 
-        $event = new WebhookEvent();
+        $event = new WebhookEvent;
         $event->forceFill($row);
         $event->exists = true;
 
@@ -61,7 +61,7 @@ final class InMemoryWebhookEventRepository implements WebhookEventRepositoryInte
             'status_reason' => null,
             'attempts' => 1,
             'processed_at' => null,
-            'created_at' => new DateTimeImmutable(),
+            'created_at' => new DateTimeImmutable,
         ];
 
         return true;
@@ -75,17 +75,17 @@ final class InMemoryWebhookEventRepository implements WebhookEventRepositoryInte
         ?string $paymentReference = null,
     ): void {
         $key = $this->key($gateway, $eventId);
-        if (!isset($this->events[$key])) {
+        if (! isset($this->events[$key])) {
             return;
         }
 
-        if (!$status->isFinal() && $this->events[$key]['status']->isFinal()) {
+        if (! $status->isFinal() && $this->events[$key]['status']->isFinal()) {
             return;
         }
 
         $this->events[$key]['status'] = $status;
         $this->events[$key]['status_reason'] = $reason;
-        $this->events[$key]['processed_at'] = $status->isFinal() ? new DateTimeImmutable() : null;
+        $this->events[$key]['processed_at'] = $status->isFinal() ? new DateTimeImmutable : null;
         if ($paymentReference !== null && $paymentReference !== '') {
             $this->events[$key]['payment_reference'] = $paymentReference;
         }
@@ -106,6 +106,6 @@ final class InMemoryWebhookEventRepository implements WebhookEventRepositoryInte
 
     private function key(string $gateway, string $eventId): string
     {
-        return $gateway . ':' . $eventId;
+        return $gateway.':'.$eventId;
     }
 }

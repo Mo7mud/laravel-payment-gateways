@@ -28,7 +28,7 @@ final class ResolveRefundCommand extends Command
             return self::INVALID;
         }
 
-        if (!$this->option('force') && !$this->confirm('Only continue after confirming the outcome in the gateway dashboard. Continue?')) {
+        if (! $this->option('force') && ! $this->confirm('Only continue after confirming the outcome in the gateway dashboard. Continue?')) {
             return self::FAILURE;
         }
 

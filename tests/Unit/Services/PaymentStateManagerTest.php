@@ -14,7 +14,7 @@ final class PaymentStateManagerTest extends TestCase
 {
     public function test_valid_transition_is_allowed(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         self::assertTrue($manager->canTransition(PaymentStatus::PENDING, PaymentStatus::SUCCEEDED));
         self::assertSame(
@@ -25,7 +25,7 @@ final class PaymentStateManagerTest extends TestCase
 
     public function test_invalid_transition_is_rejected(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         $this->expectException(InvalidPaymentStateTransitionException::class);
         $manager->transition(PaymentStatus::REFUNDED, PaymentStatus::SUCCEEDED);
@@ -33,7 +33,7 @@ final class PaymentStateManagerTest extends TestCase
 
     public function test_capture_after_closing_is_a_late_payment_not_an_error(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         foreach ([PaymentStatus::FAILED, PaymentStatus::CANCELLED, PaymentStatus::EXPIRED] as $closed) {
             self::assertSame(TransitionDecision::LATE_PAYMENT, $manager->decide($closed, PaymentStatus::SUCCEEDED));
@@ -42,7 +42,7 @@ final class PaymentStateManagerTest extends TestCase
 
     public function test_out_of_order_updates_are_stale(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         self::assertSame(TransitionDecision::STALE, $manager->decide(PaymentStatus::SUCCEEDED, PaymentStatus::PENDING));
         self::assertSame(TransitionDecision::STALE, $manager->decide(PaymentStatus::SUCCEEDED, PaymentStatus::FAILED));
@@ -53,7 +53,7 @@ final class PaymentStateManagerTest extends TestCase
 
     public function test_same_state_is_idempotent(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         self::assertTrue($manager->canTransition(PaymentStatus::SUCCEEDED, PaymentStatus::SUCCEEDED));
         self::assertSame(
@@ -64,7 +64,7 @@ final class PaymentStateManagerTest extends TestCase
 
     public function test_refund_lifecycle_is_allowed(): void
     {
-        $manager = new PaymentStateManager();
+        $manager = new PaymentStateManager;
 
         self::assertTrue($manager->canTransition(PaymentStatus::SUCCEEDED, PaymentStatus::REFUNDING));
         self::assertTrue($manager->canTransition(PaymentStatus::REFUNDING, PaymentStatus::PARTIALLY_REFUNDED));

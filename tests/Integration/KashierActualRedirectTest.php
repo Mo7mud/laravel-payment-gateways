@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Mo7mud\LaravelPaymentGateway\Tests\Integration;
 
-use Mo7mud\LaravelPaymentGateway\DTOs\PaymentReturnRequest;
-use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
-use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierStatusMapper;
-use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
 use PHPUnit\Framework\TestCase;
 
 final class KashierActualRedirectTest extends TestCase

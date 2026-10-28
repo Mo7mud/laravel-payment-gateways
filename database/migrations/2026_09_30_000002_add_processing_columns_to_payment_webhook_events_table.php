@@ -16,13 +16,13 @@ return new class extends Migration
         $name = PackageConfig::table('webhook_events');
 
         Schema::table($name, function (Blueprint $table) use ($name): void {
-            if (!Schema::hasColumn($name, 'status_reason')) {
+            if (! Schema::hasColumn($name, 'status_reason')) {
                 $table->string('status_reason', 500)->nullable()->after('status');
             }
-            if (!Schema::hasColumn($name, 'attempts')) {
+            if (! Schema::hasColumn($name, 'attempts')) {
                 $table->unsignedInteger('attempts')->default(1)->after('status_reason');
             }
-            $table->index(['status', 'created_at'], $name . '_status_created_index');
+            $table->index(['status', 'created_at'], $name.'_status_created_index');
         });
     }
 
@@ -31,7 +31,7 @@ return new class extends Migration
         $name = PackageConfig::table('webhook_events');
 
         Schema::table($name, function (Blueprint $table) use ($name): void {
-            $table->dropIndex($name . '_status_created_index');
+            $table->dropIndex($name.'_status_created_index');
             $table->dropColumn(['status_reason', 'attempts']);
         });
     }

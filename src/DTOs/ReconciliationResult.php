@@ -12,6 +12,5 @@ final readonly class ReconciliationResult
         public int $skipped,
         public int $failed,
         public array $failures = [],
-    ) {
-    }
+    ) {}
 }

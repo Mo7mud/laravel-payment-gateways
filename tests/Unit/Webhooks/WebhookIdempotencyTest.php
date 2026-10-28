@@ -22,13 +22,13 @@ final class WebhookIdempotencyTest extends TestCase
 {
     public function test_duplicate_webhook_is_ignored(): void
     {
-        $gateway = new MockGateway();
+        $gateway = new MockGateway;
         $service = new PaymentService(
             new GatewayManager([$gateway]),
-            $payments = new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            $events = new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            $payments = new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            $events = new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
         $service->createPayment('mock', new CreatePaymentRequest(

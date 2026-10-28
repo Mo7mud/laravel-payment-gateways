@@ -50,12 +50,12 @@ final class InMemoryPaymentRepository implements PaymentRepositoryInterface
         ?DateTimeInterface $dueAt = null,
         ?DateTimeInterface $createdAfter = null,
     ): iterable {
-        $dueAt ??= new DateTimeImmutable();
+        $dueAt ??= new DateTimeImmutable;
         $allowed = array_map(static fn (PaymentStatus $status): string => $status->value, $statuses);
         $candidates = [];
 
         foreach ($this->payments as $payment) {
-            if (!in_array($payment->status->value, $allowed, true)) {
+            if (! in_array($payment->status->value, $allowed, true)) {
                 continue;
             }
 
@@ -101,7 +101,7 @@ final class InMemoryPaymentRepository implements PaymentRepositoryInterface
             $next = $payment->next_fulfilment_dispatch_at;
 
             if ($payment->fulfilled_at !== null
-                || !$payment->status->awaitsFulfilment()
+                || ! $payment->status->awaitsFulfilment()
                 || $paidAt === null
                 || $paidAt->getTimestamp() > $paidBefore->getTimestamp()
                 || (int) ($payment->fulfilment_dispatches ?? 0) >= $maxDispatches

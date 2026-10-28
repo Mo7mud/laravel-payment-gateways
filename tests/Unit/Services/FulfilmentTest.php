@@ -29,17 +29,20 @@ use Stringable;
 final class FulfilmentTest extends TestCase
 {
     private InMemoryPaymentRepository $payments;
+
     private Dispatcher $events;
+
     private AbstractLogger $logger;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->payments = new InMemoryPaymentRepository();
-        $this->events = new Dispatcher();
+        $this->payments = new InMemoryPaymentRepository;
+        $this->events = new Dispatcher;
         $this->events->setTransactionManagerResolver(static fn () => null);
-        $this->logger = new class () extends AbstractLogger {
+        $this->logger = new class extends AbstractLogger
+        {
             /** @var list<string> */
             public array $messages = [];
 
@@ -123,11 +126,11 @@ final class FulfilmentTest extends TestCase
     private function service(array $options = []): PaymentService
     {
         return new PaymentService(
-            new GatewayManager([new MockGateway()]),
+            new GatewayManager([new MockGateway]),
             $this->payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
             events: $this->events,
             logger: $this->logger,
             options: $options,
@@ -142,11 +145,11 @@ final class FulfilmentTest extends TestCase
     private function paidWebhook(string $reference): WebhookRequest
     {
         return new WebhookRequest([
-            'event_id' => 'evt-' . $reference,
+            'event_id' => 'evt-'.$reference,
             'payment_reference' => $reference,
             'status' => 'succeeded',
             'gateway_status' => 'SUCCESS',
-            'gateway_reference' => 'mock-' . $reference,
+            'gateway_reference' => 'mock-'.$reference,
         ]);
     }
 }

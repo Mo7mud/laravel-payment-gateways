@@ -32,16 +32,16 @@ final class PaymentReconciliationService
         ?RefundRepositoryInterface $refunds = null,
         private readonly int $maxAgeDays = 30,
     ) {
-        $this->refunds = $refunds ?? new InMemoryRefundRepository();
+        $this->refunds = $refunds ?? new InMemoryRefundRepository;
     }
 
     public function reconcileStale(
         ?DateTimeInterface $staleBefore = null,
         int $limit = 100,
     ): ReconciliationResult {
-        $now = new DateTimeImmutable();
+        $now = new DateTimeImmutable;
         $staleBefore ??= $now->modify('-15 minutes');
-        $createdAfter = $this->maxAgeDays > 0 ? $now->modify('-' . $this->maxAgeDays . ' days') : null;
+        $createdAfter = $this->maxAgeDays > 0 ? $now->modify('-'.$this->maxAgeDays.' days') : null;
 
         $examined = 0;
         $updated = 0;
@@ -65,6 +65,7 @@ final class PaymentReconciliationService
             try {
                 if ($before === PaymentStatus::INITIATING) {
                     $this->paymentService->failStaleInitiation($reference) ? $updated++ : $skipped++;
+
                     continue;
                 }
 

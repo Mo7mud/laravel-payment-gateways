@@ -11,7 +11,7 @@ final class Json
 {
     public static function encode(array $payload): string
     {
-        $token = 'DECIMAL_' . bin2hex(random_bytes(8)) . '_';
+        $token = 'DECIMAL_'.bin2hex(random_bytes(8)).'_';
         $replacements = [];
 
         $prepared = self::prepare($payload, $token, $replacements);
@@ -37,8 +37,8 @@ final class Json
     {
         foreach ($payload as $key => $value) {
             if ($value instanceof DecimalNumber) {
-                $placeholder = $token . count($replacements);
-                $replacements['"' . $placeholder . '"'] = $value->value;
+                $placeholder = $token.count($replacements);
+                $replacements['"'.$placeholder.'"'] = $value->value;
                 $payload[$key] = $placeholder;
             } elseif (is_array($value)) {
                 $payload[$key] = self::prepare($value, $token, $replacements);

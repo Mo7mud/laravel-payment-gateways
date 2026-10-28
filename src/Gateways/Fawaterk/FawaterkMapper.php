@@ -51,7 +51,7 @@ final class FawaterkMapper
 
         $expiresAt = null;
         if (isset($data['expires_in']) && is_numeric($data['expires_in'])) {
-            $expiresAt = new DateTimeImmutable('now +' . max(0, (int) $data['expires_in']) . ' seconds');
+            $expiresAt = new DateTimeImmutable('now +'.max(0, (int) $data['expires_in']).' seconds');
         }
 
         return new PaymentCreationResult(
@@ -68,8 +68,8 @@ final class FawaterkMapper
     }
 
     /**
-     * @param Money|null $expectedAmount The stored payment amount. Fawaterk reports
-     *        `total` converted to EGP, so it is only compared for EGP payments.
+     * @param  Money|null  $expectedAmount  The stored payment amount. Fawaterk reports
+     *                                      `total` converted to EGP, so it is only compared for EGP payments.
      */
     public function statusResult(string $paymentReference, array $response, ?Money $expectedAmount = null): PaymentStatusResult
     {
@@ -187,7 +187,7 @@ final class FawaterkMapper
         ];
 
         return new WebhookResult(
-            eventId: 'fawaterk:' . $this->eventId($eventType, $payload),
+            eventId: 'fawaterk:'.$this->eventId($eventType, $payload),
             eventType: $eventType,
             paymentReference: $paymentReference,
             status: $status,
@@ -258,7 +258,7 @@ final class FawaterkMapper
 
     private function money(mixed $value, ?Currency $currency): ?Money
     {
-        if ($currency === null || $value === null || !is_scalar($value) || !is_numeric((string) $value)) {
+        if ($currency === null || $value === null || ! is_scalar($value) || ! is_numeric((string) $value)) {
             return null;
         }
 
@@ -271,7 +271,7 @@ final class FawaterkMapper
 
     private function currency(mixed $code): ?Currency
     {
-        if (!is_string($code) || trim($code) === '') {
+        if (! is_string($code) || trim($code) === '') {
             return null;
         }
 
@@ -291,7 +291,7 @@ final class FawaterkMapper
 
     private function nullable(mixed $value): ?string
     {
-        if ($value === null || !is_scalar($value) || (string) $value === '') {
+        if ($value === null || ! is_scalar($value) || (string) $value === '') {
             return null;
         }
 
@@ -304,12 +304,13 @@ final class FawaterkMapper
             return $payLoad;
         }
 
-        if (!is_string($payLoad) || trim($payLoad) === '') {
+        if (! is_string($payLoad) || trim($payLoad) === '') {
             return [];
         }
 
         try {
             $decoded = json_decode($payLoad, true, 512, JSON_THROW_ON_ERROR);
+
             return is_array($decoded) ? $decoded : [];
         } catch (\Throwable) {
             return [];

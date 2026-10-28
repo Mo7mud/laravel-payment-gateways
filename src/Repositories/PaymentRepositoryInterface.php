@@ -25,7 +25,7 @@ interface PaymentRepositoryInterface
      * Payments due for reconciliation: next_reconcile_at <= $dueAt, or never
      * scheduled and last updated at or before $staleBefore. Oldest first.
      *
-     * @param list<PaymentStatus> $statuses
+     * @param  list<PaymentStatus>  $statuses
      * @return iterable<int, Payment>
      */
     public function findReconciliationCandidates(

@@ -27,7 +27,8 @@ final class PaymentReconciliationServiceTest extends TestCase
 {
     public function test_failing_payments_back_off_instead_of_starving_the_batch(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public function reconcilePayment(PaymentStatusRequest $request): PaymentStatusResult
             {
                 if ($request->paymentReference === 'PAY-BROKEN') {
@@ -60,7 +61,7 @@ final class PaymentReconciliationServiceTest extends TestCase
 
     public function test_unpaid_payments_past_their_expiry_are_expired(): void
     {
-        [$service, $payments, $reconciliation] = $this->build($gateway = new MockGateway());
+        [$service, $payments, $reconciliation] = $this->build($gateway = new MockGateway);
 
         $service->createPayment('mock', new CreatePaymentRequest('PAY-OLD', Money::fromDecimal('10.00', Currency::egp())));
         $payment = $payments->findByReference('PAY-OLD');
@@ -75,14 +76,14 @@ final class PaymentReconciliationServiceTest extends TestCase
     /** @return array{0: PaymentService, 1: InMemoryPaymentRepository, 2: PaymentReconciliationService} */
     private function build(MockGateway $gateway): array
     {
-        $payments = new InMemoryPaymentRepository();
-        $refunds = new InMemoryRefundRepository();
+        $payments = new InMemoryPaymentRepository;
+        $refunds = new InMemoryRefundRepository;
         $service = new PaymentService(
             new GatewayManager([$gateway]),
             $payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
             $refunds,
         );
 

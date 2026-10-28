@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk;
 
 use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
+use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException;
 
 final class FawaterkSignatureVerifier
 {
-    public function __construct(private readonly string $vendorApiKey)
-    {
-    }
+    public function __construct(private readonly string $vendorApiKey) {}
 
     public function verifyPaidOrPending(array $payload): void
     {
@@ -20,9 +19,9 @@ final class FawaterkSignatureVerifier
         $paymentMethod = (string) ($payload['payment_method'] ?? '');
 
         $this->verify($provided, implode('&', [
-            'TransactionId=' . $transactionId,
-            'TransactionKey=' . $transactionKey,
-            'PaymentMethod=' . $paymentMethod,
+            'TransactionId='.$transactionId,
+            'TransactionKey='.$transactionKey,
+            'PaymentMethod='.$paymentMethod,
         ]));
     }
 
@@ -34,9 +33,9 @@ final class FawaterkSignatureVerifier
         $paymentMethod = (string) ($payload['payment_method'] ?? '');
 
         $this->verify($provided, implode('&', [
-            'TransactionId=' . $transactionId,
-            'TransactionKey=' . $transactionKey,
-            'PaymentMethod=' . $paymentMethod,
+            'TransactionId='.$transactionId,
+            'TransactionKey='.$transactionKey,
+            'PaymentMethod='.$paymentMethod,
         ]));
     }
 
@@ -47,8 +46,8 @@ final class FawaterkSignatureVerifier
         $paymentMethod = (string) ($payload['paymentMethod'] ?? '');
 
         $this->verify($provided, implode('&', [
-            'referenceId=' . $referenceId,
-            'PaymentMethod=' . $paymentMethod,
+            'referenceId='.$referenceId,
+            'PaymentMethod='.$paymentMethod,
         ]));
     }
 
@@ -60,16 +59,16 @@ final class FawaterkSignatureVerifier
         $currency = (string) ($payload['currency'] ?? '');
 
         $this->verify($provided, implode('&', [
-            'transactionId=' . $transactionId,
-            'amount=' . $amount,
-            'currency=' . $currency,
+            'transactionId='.$transactionId,
+            'amount='.$amount,
+            'currency='.$currency,
         ]));
     }
 
     private function verify(string $provided, string $stringToSign): void
     {
         if ($this->vendorApiKey === '') {
-            throw new \Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException('Fawaterk Vendor API Key is required for webhook verification.');
+            throw new FawaterkConfigurationException('Fawaterk Vendor API Key is required for webhook verification.');
         }
 
         if (trim($provided) === '') {
@@ -77,7 +76,7 @@ final class FawaterkSignatureVerifier
         }
 
         $expected = hash_hmac('sha256', $stringToSign, $this->vendorApiKey);
-        if (!hash_equals($expected, strtolower(trim($provided)))) {
+        if (! hash_equals($expected, strtolower(trim($provided)))) {
             throw new WebhookVerificationException('Invalid Fawaterk webhook signature.');
         }
     }

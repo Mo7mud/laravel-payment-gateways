@@ -37,10 +37,10 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
 
-            $table->index(['payment_reference', 'status'], $name . '_payment_status_index');
-            $table->unique(['gateway', 'gateway_refund_reference'], $name . '_gateway_ref_unique');
-            $table->unique(['payment_reference', 'idempotency_key'], $name . '_idempotency_unique');
-            $table->index(['status', 'created_at'], $name . '_status_created_index');
+            $table->index(['payment_reference', 'status'], $name.'_payment_status_index');
+            $table->unique(['gateway', 'gateway_refund_reference'], $name.'_gateway_ref_unique');
+            $table->unique(['payment_reference', 'idempotency_key'], $name.'_idempotency_unique');
+            $table->index(['status', 'created_at'], $name.'_status_created_index');
         });
     }
 

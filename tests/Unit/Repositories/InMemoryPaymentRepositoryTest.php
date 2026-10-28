@@ -13,8 +13,8 @@ final class InMemoryPaymentRepositoryTest extends TestCase
 {
     public function test_it_can_find_payment_by_gateway_reference_and_transaction_id(): void
     {
-        $repository = new InMemoryPaymentRepository();
-        $payment = new Payment();
+        $repository = new InMemoryPaymentRepository;
+        $payment = new Payment;
         $payment->reference = 'PAY-REF-001';
         $payment->gateway = 'fawaterk';
         $payment->status = PaymentStatus::PENDING;

@@ -33,7 +33,7 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_a_failed_notification_replayed_as_paid_does_not_mark_the_payment_paid(): void
     {
-        $client = new FakeFawaterkClient();
+        $client = new FakeFawaterkClient;
         [$service, $payments] = $this->service($client);
 
         $service->createPayment('fawaterk', new CreatePaymentRequest(
@@ -72,7 +72,7 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_failed_and_cancel_notifications_do_not_close_the_invoice(): void
     {
-        $mapper = new FawaterkMapper();
+        $mapper = new FawaterkMapper;
 
         self::assertSame(WebhookEventKind::ATTEMPT_FAILED, $mapper->webhookResult('failed', [
             'transaction_id' => 1, 'transaction_key' => 'intent-1', 'payment_method' => 'Card', 'errorMessage' => 'Declined',
@@ -85,7 +85,7 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_egp_converted_totals_are_not_compared_to_foreign_currency_payments(): void
     {
-        $mapper = new FawaterkMapper();
+        $mapper = new FawaterkMapper;
         $response = ['data' => ['paid' => 1, 'status_text' => 'paid', 'total' => '4925.75', 'currency' => 'SR', 'intent_key' => 'i', 'transaction_id' => 0]];
 
         $usd = $mapper->statusResult('PAY-1', $response, Money::fromDecimal('100.00', Currency::fromIso('USD')));
@@ -100,15 +100,15 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_an_invoice_level_failure_is_not_treated_as_final(): void
     {
-        $result = (new FawaterkMapper())->statusResult('PAY-1', ['data' => ['paid' => 0, 'status_text' => 'failed', 'total' => '10.00']]);
+        $result = (new FawaterkMapper)->statusResult('PAY-1', ['data' => ['paid' => 0, 'status_text' => 'failed', 'total' => '10.00']]);
 
         self::assertNull($result->status);
     }
 
     public function test_unknown_refund_reasons_fall_back_to_other_with_the_text_as_comment(): void
     {
-        $client = new FakeFawaterkClient();
-        $gateway = new FawaterkGateway($client, new FawaterkMapper(), new FawaterkSignatureVerifier(self::VENDOR_KEY));
+        $client = new FakeFawaterkClient;
+        $gateway = new FawaterkGateway($client, new FawaterkMapper, new FawaterkSignatureVerifier(self::VENDOR_KEY));
 
         $result = $gateway->refund(new RefundPaymentRequest(
             paymentReference: 'PAY-1',
@@ -125,8 +125,8 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_refunds_below_the_gateway_minimum_are_rejected_before_calling_it(): void
     {
-        $client = new FakeFawaterkClient();
-        $gateway = new FawaterkGateway($client, new FawaterkMapper(), new FawaterkSignatureVerifier(self::VENDOR_KEY));
+        $client = new FakeFawaterkClient;
+        $gateway = new FawaterkGateway($client, new FawaterkMapper, new FawaterkSignatureVerifier(self::VENDOR_KEY));
 
         try {
             $gateway->refund(new RefundPaymentRequest('PAY-1', Money::fromDecimal('0.50', Currency::egp()), metadata: ['gateway_transaction_id' => '555']));
@@ -138,7 +138,7 @@ final class FawaterkHardeningTest extends TestCase
 
     public function test_cart_items_must_add_up_to_the_payment_amount(): void
     {
-        $gateway = new FawaterkGateway(new FakeFawaterkClient(), new FawaterkMapper(), new FawaterkSignatureVerifier(self::VENDOR_KEY));
+        $gateway = new FawaterkGateway(new FakeFawaterkClient, new FawaterkMapper, new FawaterkSignatureVerifier(self::VENDOR_KEY));
 
         $this->expectException(\InvalidArgumentException::class);
         $gateway->createPayment(new CreatePaymentRequest(
@@ -152,14 +152,14 @@ final class FawaterkHardeningTest extends TestCase
     /** @return array{0: PaymentService, 1: InMemoryPaymentRepository} */
     private function service(FakeFawaterkClient $client): array
     {
-        $payments = new InMemoryPaymentRepository();
+        $payments = new InMemoryPaymentRepository;
         $service = new PaymentService(
-            new GatewayManager([new FawaterkGateway($client, new FawaterkMapper(), new FawaterkSignatureVerifier(self::VENDOR_KEY))]),
+            new GatewayManager([new FawaterkGateway($client, new FawaterkMapper, new FawaterkSignatureVerifier(self::VENDOR_KEY))]),
             $payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
         );
 
         return [$service, $payments];

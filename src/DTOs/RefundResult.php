@@ -11,7 +11,7 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 final readonly class RefundResult
 {
     /**
-     * @param Money|null $totalRefunded Cumulative refunded amount reported by the gateway, when available.
+     * @param  Money|null  $totalRefunded  Cumulative refunded amount reported by the gateway, when available.
      */
     public function __construct(
         public string $paymentReference,
@@ -22,6 +22,5 @@ final readonly class RefundResult
         public ?DateTimeImmutable $occurredAt = null,
         public array $metadata = [],
         public ?Money $totalRefunded = null,
-    ) {
-    }
+    ) {}
 }

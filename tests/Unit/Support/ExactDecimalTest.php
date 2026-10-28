@@ -42,7 +42,7 @@ final class ExactDecimalTest extends TestCase
         foreach (['999999999999999999999999', '10000000000000000.00'] as $amount) {
             try {
                 Money::fromDecimal($amount, Currency::egp());
-                self::fail('Expected an exception for ' . $amount);
+                self::fail('Expected an exception for '.$amount);
             } catch (InvalidArgumentException) {
                 $this->addToAssertionCount(1);
             }

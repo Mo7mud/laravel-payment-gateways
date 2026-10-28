@@ -30,12 +30,11 @@ final class KashierSignatureVerifier
     public function __construct(
         private readonly string $paymentApiKey,
         private readonly array $requiredSignedKeys = self::DEFAULT_REQUIRED_KEYS,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, scalar|null> Only the signed fields. Callers must not
-     *         read decision-relevant values from anywhere else in the payload.
+     *                                    read decision-relevant values from anywhere else in the payload.
      */
     public function verifyWebhook(array $payload, array $headers): array
     {
@@ -47,18 +46,18 @@ final class KashierSignatureVerifier
         }
 
         $data = $payload['data'] ?? null;
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             throw new WebhookVerificationException('Kashier webhook payload has no data object.');
         }
 
         $keys = $data['signatureKeys'] ?? null;
-        if (!is_array($keys) || $keys === []) {
+        if (! is_array($keys) || $keys === []) {
             throw new WebhookVerificationException('Kashier webhook does not list signatureKeys.');
         }
 
         $names = [];
         foreach ($keys as $key) {
-            if (!is_string($key) || $key === '' || $key === 'signatureKeys') {
+            if (! is_string($key) || $key === '' || $key === 'signatureKeys') {
                 throw new WebhookVerificationException('Kashier webhook has an invalid signature key.');
             }
             $names[$key] = true;
@@ -69,7 +68,7 @@ final class KashierSignatureVerifier
         $parts = [];
         $signed = [];
         foreach ($names as $name) {
-            if (!array_key_exists($name, $data)) {
+            if (! array_key_exists($name, $data)) {
                 continue; // undefined values are skipped by the signer
             }
 
@@ -81,17 +80,17 @@ final class KashierSignatureVerifier
             $signed[$name] = $value;
             $parts[] = $value === null
                 ? rawurlencode($name)
-                : rawurlencode($name) . '=' . rawurlencode($this->stringify($value));
+                : rawurlencode($name).'='.rawurlencode($this->stringify($value));
         }
 
         foreach ($this->requiredSignedKeys as $required) {
-            if (!isset($signed[$required]) || $signed[$required] === '') {
+            if (! isset($signed[$required]) || $signed[$required] === '') {
                 throw new WebhookVerificationException(sprintf('Kashier webhook does not sign required field [%s].', $required));
             }
         }
 
         $expected = hash_hmac('sha256', implode('&', $parts), $this->paymentApiKey);
-        if (!hash_equals($expected, strtolower(trim($signature)))) {
+        if (! hash_equals($expected, strtolower(trim($signature)))) {
             throw new WebhookVerificationException('Invalid Kashier webhook signature.');
         }
 
@@ -103,7 +102,7 @@ final class KashierSignatureVerifier
         $this->assertConfigured();
 
         $signature = $query['signature'] ?? null;
-        if (!is_string($signature) || trim($signature) === '') {
+        if (! is_string($signature) || trim($signature) === '') {
             throw new WebhookVerificationException('Missing Kashier redirect signature.');
         }
 
@@ -116,7 +115,7 @@ final class KashierSignatureVerifier
             if (is_array($value)) {
                 throw new WebhookVerificationException('Invalid Kashier redirect parameters.');
             }
-            $parts[] = $field . '=' . ($value === null ? 'null' : (string) $value);
+            $parts[] = $field.'='.($value === null ? 'null' : (string) $value);
         }
 
         if (hash_equals(hash_hmac('sha256', implode('&', $parts), $this->paymentApiKey), $signature)) {
@@ -134,10 +133,10 @@ final class KashierSignatureVerifier
             if (is_array($value)) {
                 throw new WebhookVerificationException('Invalid Kashier redirect parameters.');
             }
-            $parts[] = $key . '=' . ($value === null ? '' : (string) $value);
+            $parts[] = $key.'='.($value === null ? '' : (string) $value);
         }
 
-        if ($parts === [] || !hash_equals(hash_hmac('sha256', implode('&', $parts), $this->paymentApiKey), $signature)) {
+        if ($parts === [] || ! hash_equals(hash_hmac('sha256', implode('&', $parts), $this->paymentApiKey), $signature)) {
             throw new WebhookVerificationException('Invalid Kashier redirect signature.');
         }
     }

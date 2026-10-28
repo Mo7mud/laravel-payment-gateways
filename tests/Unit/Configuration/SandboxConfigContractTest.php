@@ -10,7 +10,7 @@ final class SandboxConfigContractTest extends TestCase
 {
     public function test_kashier_example_uses_the_package_webhook_environment_variable_name(): void
     {
-        $env = file_get_contents(__DIR__ . '/../../Fixtures/kashier.env.example');
+        $env = file_get_contents(__DIR__.'/../../Fixtures/kashier.env.example');
 
         self::assertIsString($env);
         self::assertStringContainsString('KASHIER_SERVER_WEBHOOK_URL=', $env);

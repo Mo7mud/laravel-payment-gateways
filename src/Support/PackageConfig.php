@@ -25,7 +25,7 @@ final class PackageConfig
         try {
             $container = Container::getInstance();
             if ($container->bound('config')) {
-                return $container->make('config')->get('payment-gateway.' . $key, $default);
+                return $container->make('config')->get('payment-gateway.'.$key, $default);
             }
         } catch (Throwable) {
             // Fall through to the default.
@@ -37,7 +37,7 @@ final class PackageConfig
     public static function table(string $name): string
     {
         $default = self::TABLE_DEFAULTS[$name] ?? $name;
-        $value = self::get('tables.' . $name, $default);
+        $value = self::get('tables.'.$name, $default);
 
         return is_string($value) && $value !== '' ? $value : $default;
     }

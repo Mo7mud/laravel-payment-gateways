@@ -35,9 +35,13 @@ use Stringable;
 final class CancellationTest extends TestCase
 {
     private FakeKashierClient $client;
+
     private InMemoryPaymentRepository $payments;
+
     private PaymentService $service;
+
     private AbstractLogger $logger;
+
     /** @var list<object> */
     private array $dispatched = [];
 
@@ -45,9 +49,10 @@ final class CancellationTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = new FakeKashierClient();
-        $this->payments = new InMemoryPaymentRepository();
-        $this->logger = new class () extends AbstractLogger {
+        $this->client = new FakeKashierClient;
+        $this->payments = new InMemoryPaymentRepository;
+        $this->logger = new class extends AbstractLogger
+        {
             /** @var list<string> */
             public array $messages = [];
 
@@ -57,7 +62,7 @@ final class CancellationTest extends TestCase
             }
         };
 
-        $events = new Dispatcher();
+        $events = new Dispatcher;
         $events->setTransactionManagerResolver(static fn () => null);
         $events->listen('*', function (string $name, array $payload): void {
             $this->dispatched[] = $payload[0];
@@ -68,17 +73,17 @@ final class CancellationTest extends TestCase
                 new KashierGateway(
                     $this->client,
                     new KashierSignatureVerifier(KashierPayloads::API_KEY),
-                    new KashierStatusMapper(),
+                    new KashierStatusMapper,
                     ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/return'],
                     $this->logger,
                 ),
-                new MockGateway(),
+                new MockGateway,
             ]),
             $this->payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
             $events,
         );
     }

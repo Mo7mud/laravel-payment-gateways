@@ -12,6 +12,5 @@ final readonly class CustomerData
         public ?string $email = null,
         public ?string $phone = null,
         public ?string $reference = null,
-    ) {
-    }
+    ) {}
 }

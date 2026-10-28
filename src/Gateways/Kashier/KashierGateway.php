@@ -42,18 +42,10 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Throwable;
 
-final class KashierGateway implements
-    PaymentGatewayInterface,
-    PaymentCreatorInterface,
-    PaymentStatusProviderInterface,
-    PaymentReconciliationInterface,
-    PaymentCancellationInterface,
-    PaymentRefundInterface,
-    PaymentReturnHandlerInterface,
-    WebhookHandlerInterface,
-    DeclaresReservedMetadataKeys
+final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCancellationInterface, PaymentCreatorInterface, PaymentGatewayInterface, PaymentReconciliationInterface, PaymentRefundInterface, PaymentReturnHandlerInterface, PaymentStatusProviderInterface, WebhookHandlerInterface
 {
     private const FORBIDDEN_METHODS = ['installment', 'installments', 'bank_installments', 'bnpl'];
+
     private const ORDER_PAGE_SIZE = 20;
 
     public function __construct(
@@ -61,7 +53,7 @@ final class KashierGateway implements
         private readonly KashierSignatureVerifier $signatures,
         private readonly KashierStatusMapper $statuses,
         private readonly array $config = [],
-        private readonly LoggerInterface $logger = new NullLogger(),
+        private readonly LoggerInterface $logger = new NullLogger,
     ) {
         // Configuration is validated when an operation needs it, so an
         // unconfigured Kashier cannot break other gateways at boot.
@@ -114,7 +106,7 @@ final class KashierGateway implements
         }
 
         $expiresAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->modify('+' . max(1, (int) ($this->config['expire_minutes'] ?? 30)) . ' minutes');
+            ->modify('+'.max(1, (int) ($this->config['expire_minutes'] ?? 30)).' minutes');
 
         $payload = [
             'expireAt' => $expiresAt->format('Y-m-d\TH:i:s.v\Z'),
@@ -195,7 +187,7 @@ final class KashierGateway implements
         $data = is_array($response['data'] ?? null) ? $response['data'] : [];
         if ($data === []) {
             throw new KashierConfigurationException(
-                'Kashier returned no payment session data for session [' . $sessionId . '].'
+                'Kashier returned no payment session data for session ['.$sessionId.'].'
             );
         }
 
@@ -218,7 +210,7 @@ final class KashierGateway implements
             throw new KashierConfigurationException('Kashier session ID (gatewayReference) is required to cancel a payment.');
         }
 
-        if (!$this->client instanceof KashierSessionCancellationInterface) {
+        if (! $this->client instanceof KashierSessionCancellationInterface) {
             throw new UnsupportedPaymentOperationException('kashier', 'cancel_payment');
         }
 
@@ -260,7 +252,7 @@ final class KashierGateway implements
     /** @return list<array<string, mixed>> */
     private function fetchOrders(string $merchantOrderId): array
     {
-        if (!$this->client instanceof KashierPaginatedOrdersInterface) {
+        if (! $this->client instanceof KashierPaginatedOrdersInterface) {
             return $this->ordersFrom($this->client->getOrderStatus($merchantOrderId));
         }
 
@@ -360,7 +352,7 @@ final class KashierGateway implements
             return $this->withStatus($fromOrder, null);
         }
 
-        if ($session->status === null || ($session->status->isUnpaid() && !$session->status->isClosedUnpaid())) {
+        if ($session->status === null || ($session->status->isUnpaid() && ! $session->status->isClosedUnpaid())) {
             // Session still open (or unknown status): the attempt failed, the payment did not.
             return $this->withStatus($fromOrder, null);
         }
@@ -581,7 +573,7 @@ final class KashierGateway implements
         $signed = $this->signatures->verifyWebhook($request->payload, $request->headers);
 
         foreach (KashierSignatureVerifier::DEFAULT_REQUIRED_KEYS as $required) {
-            if (!isset($signed[$required]) || !is_scalar($signed[$required]) || (string) $signed[$required] === '') {
+            if (! isset($signed[$required]) || ! is_scalar($signed[$required]) || (string) $signed[$required] === '') {
                 throw new WebhookVerificationException(sprintf('Kashier webhook does not sign required field [%s].', $required));
             }
         }
@@ -600,7 +592,7 @@ final class KashierGateway implements
         $transactionId = (string) $signed['transactionId'];
         $merchantOrderId = (string) $signed['merchantOrderId'];
 
-        if (!is_scalar($signed['amount']) || !is_numeric((string) $signed['amount'])) {
+        if (! is_scalar($signed['amount']) || ! is_numeric((string) $signed['amount'])) {
             throw new WebhookVerificationException('Kashier webhook amount is not numeric.');
         }
         $amount = Money::fromGatewayAmount((string) $signed['amount'], Currency::fromIso((string) $signed['currency']));
@@ -608,7 +600,7 @@ final class KashierGateway implements
         [$kind, $status, $refund, $ignore] = $this->classify($event, $gatewayStatus, $amount, $transactionId, $eventSigned);
 
         return new WebhookResult(
-            eventId: 'kashier:' . ($event !== '' ? $event : 'unknown') . ':' . $transactionId . ':' . $gatewayStatus,
+            eventId: 'kashier:'.($event !== '' ? $event : 'unknown').':'.$transactionId.':'.$gatewayStatus,
             eventType: $event !== '' ? $event : 'unknown',
             paymentReference: $merchantOrderId,
             status: $status,
@@ -641,8 +633,8 @@ final class KashierGateway implements
      */
     private function classify(string $event, string $status, Money $amount, string $transactionId, bool $eventSigned = true): array
     {
-        if (!in_array($status, ['SUCCESS', 'FAILURE', 'PENDING'], true)) {
-            return [WebhookEventKind::IGNORED, null, null, 'unsupported status ' . $status];
+        if (! in_array($status, ['SUCCESS', 'FAILURE', 'PENDING'], true)) {
+            return [WebhookEventKind::IGNORED, null, null, 'unsupported status '.$status];
         }
 
         switch ($event) {
@@ -664,7 +656,7 @@ final class KashierGateway implements
 
             case 'reject':
                 if ($status !== 'SUCCESS') {
-                    return [WebhookEventKind::IGNORED, null, null, 'reject ' . $status];
+                    return [WebhookEventKind::IGNORED, null, null, 'reject '.$status];
                 }
 
                 // An attempt failure is not confirmed with the API. With an unsigned
@@ -692,7 +684,7 @@ final class KashierGateway implements
                 return [WebhookEventKind::REFUND, null, new RefundNotification($amount, $refundStatus, $transactionId, $type), null];
 
             default:
-                return [WebhookEventKind::IGNORED, null, null, 'unsupported event ' . ($event !== '' ? $event : '(none)')];
+                return [WebhookEventKind::IGNORED, null, null, 'unsupported event '.($event !== '' ? $event : '(none)')];
         }
     }
 
@@ -741,12 +733,12 @@ final class KashierGateway implements
 
     private function successfulCapture(mixed $transactions): ?array
     {
-        if (!is_array($transactions)) {
+        if (! is_array($transactions)) {
             return null;
         }
 
         foreach ($transactions as $transaction) {
-            if (!is_array($transaction)) {
+            if (! is_array($transaction)) {
                 continue;
             }
 
@@ -761,7 +753,7 @@ final class KashierGateway implements
 
     private function lastTransaction(mixed $transactions): array
     {
-        if (!is_array($transactions)) {
+        if (! is_array($transactions)) {
             return [];
         }
 
@@ -777,7 +769,7 @@ final class KashierGateway implements
 
     private function containsTransaction(mixed $transactions, string $transactionId): bool
     {
-        if (!is_array($transactions)) {
+        if (! is_array($transactions)) {
             return false;
         }
 
@@ -797,7 +789,7 @@ final class KashierGateway implements
 
     private function money(mixed $value, Currency $currency): ?Money
     {
-        if ($value === null || $value === '' || !is_scalar($value) || !is_numeric((string) $value)) {
+        if ($value === null || $value === '' || ! is_scalar($value) || ! is_numeric((string) $value)) {
             return null;
         }
 
@@ -806,7 +798,7 @@ final class KashierGateway implements
 
     private function date(mixed $value): ?DateTimeImmutable
     {
-        if (!is_string($value) || trim($value) === '') {
+        if (! is_string($value) || trim($value) === '') {
             return null;
         }
 
@@ -819,7 +811,7 @@ final class KashierGateway implements
 
     private function nullable(mixed $value): ?string
     {
-        if ($value === null || $value === '' || $value === 'NA' || !is_scalar($value)) {
+        if ($value === null || $value === '' || $value === 'NA' || ! is_scalar($value)) {
             return null;
         }
 

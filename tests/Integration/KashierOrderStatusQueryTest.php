@@ -16,7 +16,7 @@ final class KashierOrderStatusQueryTest extends TestCase
             $this->markTestSkipped('KASHIER_SECRET_KEY is not configured.');
         }
 
-        return (new Factory())
+        return (new Factory)
             ->timeout(20)
             ->withHeaders(['Authorization' => $secret, 'Accept' => 'application/json']);
     }
@@ -29,7 +29,7 @@ final class KashierOrderStatusQueryTest extends TestCase
         }
 
         $baseUrl = rtrim(getenv('KASHIER_TEST_API_BASE_URL') ?: 'https://test-api.kashier.io', '/');
-        $response = $this->client()->get($baseUrl . '/v3/payment/sessions/' . rawurlencode($sessionId) . '/payment');
+        $response = $this->client()->get($baseUrl.'/v3/payment/sessions/'.rawurlencode($sessionId).'/payment');
 
         $this->assertSame(200, $response->status(), $response->body());
         $json = $response->json();
@@ -46,7 +46,7 @@ final class KashierOrderStatusQueryTest extends TestCase
         }
 
         $baseUrl = rtrim(getenv('KASHIER_TEST_API_BASE_URL') ?: 'https://test-api.kashier.io', '/');
-        $response = $this->client()->get($baseUrl . '/v3/payment/orders', [
+        $response = $this->client()->get($baseUrl.'/v3/payment/orders', [
             'search' => $merchantOrderId,
             'startDate' => getenv('KASHIER_TEST_START_DATE') ?: date('Y-m-d'),
             'endDate' => getenv('KASHIER_TEST_END_DATE') ?: date('Y-m-d', strtotime('+1 day')),

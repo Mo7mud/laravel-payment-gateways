@@ -37,7 +37,7 @@ final class SchemaGuard
     public static function existsAndOwned(string $logicalName): bool
     {
         $table = PackageConfig::table($logicalName);
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return false;
         }
 
@@ -51,7 +51,7 @@ final class SchemaGuard
     {
         $table = PackageConfig::table($logicalName);
 
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             throw new RuntimeException(sprintf(
                 'Table [%s] does not exist; run the package create migrations first.',
                 $table,
@@ -59,10 +59,10 @@ final class SchemaGuard
         }
 
         foreach (self::SIGNATURES[$logicalName] ?? [] as $column) {
-            if (!Schema::hasColumn($table, $column)) {
+            if (! Schema::hasColumn($table, $column)) {
                 throw new RuntimeException(sprintf(
                     'Table [%s] already exists but was not created by mo7mud/laravel-payment-gateway '
-                    . '(column [%s] is missing). Set %s to an unused table name and run the migrations again.',
+                    .'(column [%s] is missing). Set %s to an unused table name and run the migrations again.',
                     $table,
                     $column,
                     self::ENV_KEYS[$logicalName] ?? 'the table name in payment-gateway.tables',

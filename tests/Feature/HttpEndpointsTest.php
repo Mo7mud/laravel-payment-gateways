@@ -19,7 +19,7 @@ final class HttpEndpointsTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
+        $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['config']->set('payment-gateway.kashier.payment_api_key', 'payment-api-key');
         $app['config']->set('payment-gateway.kashier.merchant_id', 'MID-TEST');
         $app['config']->set('payment-gateway.reconciliation.schedule', false);
@@ -59,6 +59,6 @@ final class HttpEndpointsTest extends TestCase
 
     private function user(): User
     {
-        return (new User())->forceFill(['id' => 1, 'name' => 'Admin', 'email' => 'admin@example.test']);
+        return (new User)->forceFill(['id' => 1, 'name' => 'Admin', 'email' => 'admin@example.test']);
     }
 }

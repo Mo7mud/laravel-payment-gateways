@@ -7,13 +7,15 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Services;
 use DateTimeImmutable;
 use Illuminate\Events\Dispatcher;
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
+use Mo7mud\LaravelPaymentGateway\DTOs\PaymentCreationResult;
+use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundResult;
-use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
 use Mo7mud\LaravelPaymentGateway\Events\LatePaymentReceived;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentAttemptFailed;
+use Mo7mud\LaravelPaymentGateway\Events\PaymentRefunded;
 use Mo7mud\LaravelPaymentGateway\Events\PaymentSucceeded;
 use Mo7mud\LaravelPaymentGateway\Exceptions\InvalidRefundException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentReferenceConflictException;
@@ -39,8 +41,11 @@ use PHPUnit\Framework\TestCase;
 final class PaymentLifecycleTest extends TestCase
 {
     private FakeKashierClient $client;
+
     private InMemoryPaymentRepository $payments;
+
     private PaymentService $service;
+
     /** @var list<object> */
     private array $dispatched = [];
 
@@ -48,10 +53,10 @@ final class PaymentLifecycleTest extends TestCase
     {
         parent::setUp();
 
-        $this->client = new FakeKashierClient();
-        $this->payments = new InMemoryPaymentRepository();
+        $this->client = new FakeKashierClient;
+        $this->payments = new InMemoryPaymentRepository;
 
-        $events = new Dispatcher();
+        $events = new Dispatcher;
         // A Laravel application sets this resolver (DB transaction manager);
         // a bare Dispatcher has none and fails on ShouldDispatchAfterCommit events.
         $events->setTransactionManagerResolver(static fn () => null);
@@ -63,14 +68,14 @@ final class PaymentLifecycleTest extends TestCase
             new GatewayManager([new KashierGateway(
                 $this->client,
                 new KashierSignatureVerifier(KashierPayloads::API_KEY),
-                new KashierStatusMapper(),
+                new KashierStatusMapper,
                 ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/return'],
             )]),
             $this->payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
             $events,
         );
     }
@@ -192,7 +197,8 @@ final class PaymentLifecycleTest extends TestCase
 
     public function test_pending_refunds_reserve_their_amount_and_idempotency_keys_replay(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public int $calls = 0;
 
             public function refund(RefundPaymentRequest $request): RefundResult
@@ -205,11 +211,11 @@ final class PaymentLifecycleTest extends TestCase
 
         $service = new PaymentService(
             new GatewayManager([$gateway]),
-            $payments = new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            $payments = new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
         );
 
         $service->createPayment('mock', new CreatePaymentRequest('PAY-R', Money::fromDecimal('10.00', Currency::egp())));
@@ -243,7 +249,7 @@ final class PaymentLifecycleTest extends TestCase
         self::assertSame(PaymentStatus::SUCCEEDED, $payment?->status);
         self::assertSame(0, (int) $payment?->refunded_amount_minor);
         self::assertStringStartsWith('unconfirmed', (string) $result->processingNote);
-        self::assertFalse($this->wasDispatched(\Mo7mud\LaravelPaymentGateway\Events\PaymentRefunded::class));
+        self::assertFalse($this->wasDispatched(PaymentRefunded::class));
     }
 
     public function test_a_signed_payment_notification_relabelled_as_a_void_does_not_cancel_an_open_payment(): void
@@ -278,7 +284,7 @@ final class PaymentLifecycleTest extends TestCase
         self::assertSame(PaymentStatus::EXPIRED, $this->payments->findByReference('ORD-RETRY')?->status);
     }
 
-    private function create(string $reference): \Mo7mud\LaravelPaymentGateway\DTOs\PaymentCreationResult
+    private function create(string $reference): PaymentCreationResult
     {
         return $this->service->createPayment('kashier', new CreatePaymentRequest($reference, Money::fromDecimal('100.00', Currency::egp())));
     }

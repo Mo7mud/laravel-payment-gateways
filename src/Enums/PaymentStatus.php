@@ -27,7 +27,7 @@ enum PaymentStatus: string
     /** No money has been collected yet. */
     public function isUnpaid(): bool
     {
-        return !$this->isPaid();
+        return ! $this->isPaid();
     }
 
     /** Paid and not fully refunded: the order still has to be fulfilled. */

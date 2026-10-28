@@ -13,7 +13,8 @@ final class PaymentGatewayInterfaceTest extends TestCase
 {
     public function test_a_gateway_exposes_only_generic_identity_and_capabilities_at_the_base_contract(): void
     {
-        $gateway = new class implements PaymentGatewayInterface {
+        $gateway = new class implements PaymentGatewayInterface
+        {
             public function name(): GatewayName
             {
                 return GatewayName::KASHIER;

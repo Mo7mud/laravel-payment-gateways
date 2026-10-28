@@ -7,22 +7,23 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Services;
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusResult;
-use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
-use Mo7mud\LaravelPaymentGateway\DTOs\WebhookRequest;
-use Mo7mud\LaravelPaymentGateway\DTOs\RefundResult;
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundNotification;
+use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
+use Mo7mud\LaravelPaymentGateway\DTOs\RefundResult;
+use Mo7mud\LaravelPaymentGateway\DTOs\WebhookRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\WebhookResult;
-use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventKind;
-use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryRefundRepository;
 use Mo7mud\LaravelPaymentGateway\Enums\GatewayName;
 use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
+use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventKind;
+use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentAmountMismatchException;
+use Mo7mud\LaravelPaymentGateway\Infrastructure\InMemoryTransactionRunner;
 use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryPaymentRepository;
+use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryRefundRepository;
+use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryWebhookEventRepository;
 use Mo7mud\LaravelPaymentGateway\Services\GatewayManager;
 use Mo7mud\LaravelPaymentGateway\Services\PaymentService;
 use Mo7mud\LaravelPaymentGateway\Services\PaymentStateManager;
-use Mo7mud\LaravelPaymentGateway\Infrastructure\InMemoryTransactionRunner;
-use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryWebhookEventRepository;
 use Mo7mud\LaravelPaymentGateway\Testing\MockGateway;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
@@ -31,19 +32,23 @@ use PHPUnit\Framework\TestCase;
 final class PaymentServiceTest extends TestCase
 {
     private PaymentService $service;
+
     private MockGateway $gateway;
+
     private InMemoryPaymentRepository $repository;
+
     private InMemoryRefundRepository $refunds;
+
     private InMemoryWebhookEventRepository $events;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->gateway = new MockGateway();
-        $this->repository = new InMemoryPaymentRepository();
-        $this->refunds = new InMemoryRefundRepository();
-        $this->events = new InMemoryWebhookEventRepository();
+        $this->gateway = new MockGateway;
+        $this->repository = new InMemoryPaymentRepository;
+        $this->refunds = new InMemoryRefundRepository;
+        $this->events = new InMemoryWebhookEventRepository;
         $this->service = $this->serviceFor($this->gateway);
     }
 
@@ -53,16 +58,17 @@ final class PaymentServiceTest extends TestCase
         return new PaymentService(
             new GatewayManager([$gateway]),
             $this->repository,
-            new PaymentStateManager(),
+            new PaymentStateManager,
             $this->events,
-            new InMemoryTransactionRunner(),
+            new InMemoryTransactionRunner,
             $this->refunds,
         );
     }
 
     private function refundWebhookGateway(): MockGateway
     {
-        return new class extends MockGateway {
+        return new class extends MockGateway
+        {
             public function handleWebhook(WebhookRequest $request): WebhookResult
             {
                 $amount = Money::fromDecimal((string) $request->payload['amount'], Currency::egp());
@@ -126,7 +132,6 @@ final class PaymentServiceTest extends TestCase
         self::assertSame(PaymentStatus::SUCCEEDED, $result->status);
     }
 
-
     public function test_partial_refund_moves_a_succeeded_payment_to_partially_refunded(): void
     {
         $this->service->createPayment(
@@ -159,7 +164,8 @@ final class PaymentServiceTest extends TestCase
         $this->gateway->setStatus('PAY-006', PaymentStatus::SUCCEEDED);
         $this->service->getPaymentStatus(new PaymentStatusRequest('PAY-006'));
 
-        $this->gateway = new class extends MockGateway {
+        $this->gateway = new class extends MockGateway
+        {
             public function refund(RefundPaymentRequest $request): RefundResult
             {
                 return new RefundResult(
@@ -174,9 +180,9 @@ final class PaymentServiceTest extends TestCase
         $this->service = new PaymentService(
             new GatewayManager([$this->gateway]),
             $this->repository,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
         $result = $this->service->refund(new RefundPaymentRequest(
@@ -190,8 +196,6 @@ final class PaymentServiceTest extends TestCase
         self::assertSame(PaymentStatus::SUCCEEDED, $payment?->status);
     }
 
-
-
     public function test_non_refund_webhook_still_rejects_amount_mismatch(): void
     {
         $this->service->createPayment(
@@ -199,10 +203,11 @@ final class PaymentServiceTest extends TestCase
             new CreatePaymentRequest('PAY-011', Money::fromDecimal('10.00', Currency::egp())),
         );
 
-        $gateway = new class extends MockGateway {
-            public function handleWebhook(WebhookRequest $request): \Mo7mud\LaravelPaymentGateway\DTOs\WebhookResult
+        $gateway = new class extends MockGateway
+        {
+            public function handleWebhook(WebhookRequest $request): WebhookResult
             {
-                return new \Mo7mud\LaravelPaymentGateway\DTOs\WebhookResult(
+                return new WebhookResult(
                     eventId: 'pay-011',
                     eventType: 'pay',
                     paymentReference: 'PAY-011',
@@ -211,7 +216,7 @@ final class PaymentServiceTest extends TestCase
                     gatewayReference: 'order-011',
                     gatewayTransactionId: 'tx-011',
                     gatewayStatus: 'SUCCESS',
-                    occurredAt: new \DateTimeImmutable(),
+                    occurredAt: new \DateTimeImmutable,
                     metadata: [],
                     rawPayload: ['event' => 'pay'],
                 );
@@ -221,12 +226,12 @@ final class PaymentServiceTest extends TestCase
         $service = new PaymentService(
             new GatewayManager([$gateway]),
             $this->repository,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
-        $this->expectException(\Mo7mud\LaravelPaymentGateway\Exceptions\PaymentAmountMismatchException::class);
+        $this->expectException(PaymentAmountMismatchException::class);
 
         $service->handleWebhook(
             new WebhookRequest(['event' => 'pay']),
@@ -317,10 +322,10 @@ final class PaymentServiceTest extends TestCase
         ));
     }
 
-
     public function test_refund_rejects_amount_above_remaining_before_calling_gateway(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public int $refundCalls = 0;
 
             public function refund(RefundPaymentRequest $request): RefundResult
@@ -333,10 +338,10 @@ final class PaymentServiceTest extends TestCase
 
         $service = new PaymentService(
             new GatewayManager([$gateway]),
-            $repository = new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            $repository = new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
         $service->createPayment(
@@ -388,7 +393,8 @@ final class PaymentServiceTest extends TestCase
 
     public function test_gateway_refund_overrun_is_rejected_without_persisting_the_refund(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public function refund(RefundPaymentRequest $request): RefundResult
             {
                 return new RefundResult(
@@ -401,13 +407,13 @@ final class PaymentServiceTest extends TestCase
             }
         };
 
-        $repository = new InMemoryPaymentRepository();
+        $repository = new InMemoryPaymentRepository;
         $service = new PaymentService(
             new GatewayManager([$gateway]),
             $repository,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
         $service->createPayment(
@@ -463,7 +469,8 @@ final class PaymentServiceTest extends TestCase
         $this->gateway->setStatus('PAY-012', PaymentStatus::SUCCEEDED);
         $this->service->getPaymentStatus(new PaymentStatusRequest('PAY-012'));
 
-        $pendingGateway = new class extends MockGateway {
+        $pendingGateway = new class extends MockGateway
+        {
             public function getPaymentStatus(PaymentStatusRequest $request): PaymentStatusResult
             {
                 return new PaymentStatusResult(
@@ -478,9 +485,9 @@ final class PaymentServiceTest extends TestCase
         $service = new PaymentService(
             new GatewayManager([$pendingGateway]),
             $this->repository,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
         );
 
         $result = $service->refund(new RefundPaymentRequest(

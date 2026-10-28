@@ -20,8 +20,8 @@ final class InMemoryRefundRepository implements RefundRepositoryInterface
     public function save(PaymentRefund $refund): PaymentRefund
     {
         $uuid = (string) $refund->uuid;
-        if (!isset($this->createdAt[$uuid])) {
-            $this->createdAt[$uuid] = new DateTimeImmutable();
+        if (! isset($this->createdAt[$uuid])) {
+            $this->createdAt[$uuid] = new DateTimeImmutable;
         }
         $refund->exists = true;
         $this->refunds[$uuid] = clone $refund;

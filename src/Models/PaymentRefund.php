@@ -31,7 +31,9 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 final class PaymentRefund extends Model
 {
     public const SOURCE_API = 'api';
+
     public const SOURCE_WEBHOOK = 'webhook';
+
     public const SOURCE_RECONCILIATION = 'reconciliation';
 
     protected $guarded = ['id'];

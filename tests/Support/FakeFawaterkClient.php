@@ -11,10 +11,13 @@ final class FakeFawaterkClient implements FawaterkClientInterface, FawaterkRefun
 {
     /** @var list<array<string, mixed>> items of POST /api/v3/refund/index, one page */
     public array $refundItems = [];
+
     public int $refundCalls = 0;
 
     public array $transaction = [];
+
     public array $refundPayload = [];
+
     /** @var list<string> */
     public array $reasons = ['Product damaged', 'Other'];
 

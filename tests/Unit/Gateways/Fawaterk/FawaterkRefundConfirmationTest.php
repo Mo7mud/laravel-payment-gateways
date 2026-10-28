@@ -6,6 +6,7 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Gateways\Fawaterk;
 
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\CustomerData;
+use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\WebhookRequest;
 use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
@@ -14,6 +15,7 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\FawaterkGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\FawaterkMapper;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\FawaterkSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Infrastructure\InMemoryTransactionRunner;
+use Mo7mud\LaravelPaymentGateway\Models\Payment;
 use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryPaymentRepository;
 use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryRefundRepository;
 use Mo7mud\LaravelPaymentGateway\Repositories\InMemoryWebhookEventRepository;
@@ -34,22 +36,24 @@ final class FawaterkRefundConfirmationTest extends TestCase
     private const VENDOR_KEY = 'vendor-key';
 
     private FakeFawaterkClient $client;
+
     private InMemoryPaymentRepository $payments;
+
     private PaymentService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->client = new FakeFawaterkClient();
-        $this->payments = new InMemoryPaymentRepository();
+        $this->client = new FakeFawaterkClient;
+        $this->payments = new InMemoryPaymentRepository;
         $this->service = new PaymentService(
-            new GatewayManager([new FawaterkGateway($this->client, new FawaterkMapper(), new FawaterkSignatureVerifier(self::VENDOR_KEY))]),
+            new GatewayManager([new FawaterkGateway($this->client, new FawaterkMapper, new FawaterkSignatureVerifier(self::VENDOR_KEY))]),
             $this->payments,
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
         );
 
         $this->service->createPayment('fawaterk', new CreatePaymentRequest(
@@ -119,7 +123,7 @@ final class FawaterkRefundConfirmationTest extends TestCase
         $this->service->refund(new RefundPaymentRequest('PAY-FR', Money::fromDecimal('100.00', Currency::egp()), 'Other'));
 
         $this->client->refundItems = [$this->item(9, '100.00', 'rejected')];
-        $this->service->reconcilePayment(new \Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest('PAY-FR'));
+        $this->service->reconcilePayment(new PaymentStatusRequest('PAY-FR'));
 
         self::assertSame(PaymentStatus::SUCCEEDED, $this->payment()->status);
         $retry = $this->service->refund(new RefundPaymentRequest('PAY-FR', Money::fromDecimal('100.00', Currency::egp()), 'Other'));
@@ -127,7 +131,7 @@ final class FawaterkRefundConfirmationTest extends TestCase
         self::assertSame(2, $this->client->refundCalls);
     }
 
-    private function payment(): \Mo7mud\LaravelPaymentGateway\Models\Payment
+    private function payment(): Payment
     {
         return $this->payments->findByReference('PAY-FR') ?? throw new \RuntimeException('missing payment');
     }
@@ -148,7 +152,7 @@ final class FawaterkRefundConfirmationTest extends TestCase
             'currency' => 'EGP',
             'status' => 1,
             'approvedAt' => $approvedAt,
-            'hashKey' => hash_hmac('sha256', 'transactionId=555&amount=' . $amount . '&currency=EGP', self::VENDOR_KEY),
+            'hashKey' => hash_hmac('sha256', 'transactionId=555&amount='.$amount.'&currency=EGP', self::VENDOR_KEY),
         ], [], null, 'refund');
     }
 }

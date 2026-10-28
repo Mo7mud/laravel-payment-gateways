@@ -49,7 +49,7 @@ final readonly class Money
         $amount = trim($amount);
         $scale = $currency->fractionDigits;
 
-        if (!preg_match('/^(\d+)(?:\.(\d+))?$/', $amount, $matches)) {
+        if (! preg_match('/^(\d+)(?:\.(\d+))?$/', $amount, $matches)) {
             throw new InvalidArgumentException('Money amount must be a non-negative decimal string.');
         }
 
@@ -62,7 +62,7 @@ final readonly class Money
 
         $fraction = str_pad($fraction, $scale, '0');
 
-        return new self(self::digitsToInt($whole . $fraction), $currency);
+        return new self(self::digitsToInt($whole.$fraction), $currency);
     }
 
     /**
@@ -76,14 +76,14 @@ final readonly class Money
         if (is_int($amount)) {
             $amount = (string) $amount;
         } elseif (is_float($amount)) {
-            if (!is_finite($amount) || $amount < 0 || $amount >= 1e17) {
+            if (! is_finite($amount) || $amount < 0 || $amount >= 1e17) {
                 throw new InvalidArgumentException('Gateway amount must be a finite, non-negative number within range.');
             }
             $amount = number_format($amount, $scale, '.', '');
         }
 
         $amount = trim($amount);
-        if (!preg_match('/^(\d+)(?:\.(\d+))?$/', $amount, $matches)) {
+        if (! preg_match('/^(\d+)(?:\.(\d+))?$/', $amount, $matches)) {
             throw new InvalidArgumentException('Gateway amount must be a non-negative decimal.');
         }
 
@@ -93,7 +93,7 @@ final readonly class Money
         }
 
         $kept = substr($fraction, 0, $scale);
-        $minor = self::digitsToInt($matches[1] . $kept);
+        $minor = self::digitsToInt($matches[1].$kept);
         if ((int) $fraction[$scale] >= 5) {
             if ($minor >= self::MAX_MINOR) {
                 throw new InvalidArgumentException('Money amount exceeds the supported maximum.');
@@ -116,7 +116,7 @@ final readonly class Money
         $whole = substr($raw, 0, -$scale);
         $fraction = substr($raw, -$scale);
 
-        return $whole . '.' . $fraction;
+        return $whole.'.'.$fraction;
     }
 
     public function equals(self $other): bool
@@ -192,7 +192,7 @@ final readonly class Money
         $whole = ltrim($whole, '0');
         $fraction = rtrim($fraction, '0');
 
-        return ($whole === '' ? '0' : $whole) . ($fraction === '' ? '' : '.' . $fraction);
+        return ($whole === '' ? '0' : $whole).($fraction === '' ? '' : '.'.$fraction);
     }
 
     private function assertSameCurrency(self $other): void

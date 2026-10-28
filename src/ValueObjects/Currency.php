@@ -21,13 +21,14 @@ final readonly class Currency
     ];
 
     public string $code;
+
     public int $fractionDigits;
 
     public function __construct(string $code, int $fractionDigits = 2)
     {
         $code = strtoupper(trim($code));
 
-        if (!preg_match('/^[A-Z]{3}$/', $code)) {
+        if (! preg_match('/^[A-Z]{3}$/', $code)) {
             throw new InvalidArgumentException('Currency code must be a 3-letter ISO-style code.');
         }
 

@@ -82,7 +82,7 @@ final class KashierWebhookConformanceTest extends TestCase
             'mode' => 'test',
         ];
         $message = 'paymentStatus=SUCCESS&cardDataToken=null&maskedCard=null&merchantOrderId=ORD-1&orderId=K-1'
-            . '&cardBrand=null&orderReference=null&transactionId=TX-1&amount=100&currency=EGP';
+            .'&cardBrand=null&orderReference=null&transactionId=TX-1&amount=100&currency=EGP';
         $query['signature'] = hash_hmac('sha256', $message, KashierPayloads::API_KEY);
 
         (new KashierSignatureVerifier(KashierPayloads::API_KEY))->verifyRedirect($query);
@@ -194,9 +194,9 @@ final class KashierWebhookConformanceTest extends TestCase
     private function gateway(): KashierGateway
     {
         return new KashierGateway(
-            new FakeKashierClient(),
+            new FakeKashierClient,
             new KashierSignatureVerifier(KashierPayloads::API_KEY),
-            new KashierStatusMapper(),
+            new KashierStatusMapper,
             ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/return'],
         );
     }

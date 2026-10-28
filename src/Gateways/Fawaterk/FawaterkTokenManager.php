@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk;
 
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Closure;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkApiException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException;
 
 final class FawaterkTokenManager
 {
     /**
-     * @param callable(string, array): array $tokenRequester
+     * @param  callable(string, array): array  $tokenRequester
      */
     public function __construct(
         private readonly CacheRepository $cache,
@@ -24,8 +24,7 @@ final class FawaterkTokenManager
         private readonly string $apiBaseUrl,
         private readonly Closure $tokenRequester,
         private readonly int $clockSkew = 60,
-    ) {
-    }
+    ) {}
 
     public function accessToken(): string
     {
@@ -43,7 +42,7 @@ final class FawaterkTokenManager
         $store = method_exists($this->cache, 'getStore') ? $this->cache->getStore() : null;
         if ($store instanceof LockProvider) {
             try {
-                return $store->lock($this->cacheKey() . ':lock', 15)->block(10, fn (): string => $this->refreshAccessToken());
+                return $store->lock($this->cacheKey().':lock', 15)->block(10, fn (): string => $this->refreshAccessToken());
             } catch (LockTimeoutException) {
                 // Fall through and fetch without the lock.
             }
@@ -59,7 +58,7 @@ final class FawaterkTokenManager
             return (string) $cached['access_token'];
         }
 
-        if (is_array($cached) && !empty($cached['refresh_token'])) {
+        if (is_array($cached) && ! empty($cached['refresh_token'])) {
             try {
                 $token = ($this->tokenRequester)('refresh_token', [
                     'grant_type' => 'refresh_token',
@@ -88,7 +87,7 @@ final class FawaterkTokenManager
     public function forgetAccessToken(): void
     {
         $cached = $this->cache->get($this->cacheKey());
-        if (!is_array($cached)) {
+        if (! is_array($cached)) {
             return;
         }
 
@@ -129,7 +128,7 @@ final class FawaterkTokenManager
 
     private function cacheKey(): string
     {
-        return 'mo7mud.payment-gateway.fawaterk.oauth.' . hash('sha256', implode('|', [
+        return 'mo7mud.payment-gateway.fawaterk.oauth.'.hash('sha256', implode('|', [
             $this->environment,
             $this->apiBaseUrl,
             $this->clientId,

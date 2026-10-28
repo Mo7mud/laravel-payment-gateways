@@ -11,10 +11,10 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 final readonly class PaymentStatusResult
 {
     /**
-     * @param PaymentStatus|null $status null means the gateway reported a status the
-     *        package does not recognise; the stored status is left unchanged.
-     * @param string|null $merchantOrderReference The merchant order id the gateway data
-     *        belongs to, when the gateway reports it. Used to reject mismatched data.
+     * @param  PaymentStatus|null  $status  null means the gateway reported a status the
+     *                                      package does not recognise; the stored status is left unchanged.
+     * @param  string|null  $merchantOrderReference  The merchant order id the gateway data
+     *                                               belongs to, when the gateway reports it. Used to reject mismatched data.
      */
     public function __construct(
         public string $paymentReference,
@@ -28,6 +28,5 @@ final readonly class PaymentStatusResult
         public ?DateTimeImmutable $occurredAt = null,
         public array $metadata = [],
         public ?string $merchantOrderReference = null,
-    ) {
-    }
+    ) {}
 }

@@ -14,6 +14,7 @@ use Mo7mud\LaravelPaymentGateway\Models\PaymentRefund;
 use Mo7mud\LaravelPaymentGateway\Repositories\EloquentPaymentRepository;
 use Mo7mud\LaravelPaymentGateway\Repositories\EloquentRefundRepository;
 use Mo7mud\LaravelPaymentGateway\Repositories\EloquentWebhookEventRepository;
+use Mo7mud\LaravelPaymentGateway\Support\PackageConfig;
 use Mo7mud\LaravelPaymentGateway\Support\Uuid;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
@@ -39,7 +40,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_a_merchant_order_id_cannot_belong_to_two_payments(): void
     {
-        $repository = new EloquentPaymentRepository();
+        $repository = new EloquentPaymentRepository;
         $repository->save($this->payment('ORD-1', 'ORD-1-A2-abc123'));
 
         $this->expectException(QueryException::class);
@@ -48,7 +49,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_a_gateway_transaction_id_cannot_belong_to_two_payments(): void
     {
-        $repository = new EloquentPaymentRepository();
+        $repository = new EloquentPaymentRepository;
         $first = $this->payment('ORD-T1', 'ORD-T1');
         $first->gateway_transaction_id = 'TX-1';
         $repository->save($first);
@@ -62,7 +63,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_duplicate_webhook_deliveries_produce_one_event(): void
     {
-        $events = new EloquentWebhookEventRepository();
+        $events = new EloquentWebhookEventRepository;
 
         self::assertTrue($events->storeIfAbsent('kashier', 'evt-1', 'pay', 'ORD-1', str_repeat('a', 64), [], WebhookEventStatus::RECEIVED));
         self::assertFalse($events->storeIfAbsent('kashier', 'evt-1', 'pay', 'ORD-1', str_repeat('a', 64), [], WebhookEventStatus::RECEIVED));
@@ -76,7 +77,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_an_idempotency_key_is_unique_per_payment(): void
     {
-        $refunds = new EloquentRefundRepository();
+        $refunds = new EloquentRefundRepository;
         $refunds->save($this->refund('ORD-R', 'key-1'));
 
         $this->expectException(QueryException::class);
@@ -85,7 +86,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_pending_refund_lookup_runs_on_this_database(): void
     {
-        $refunds = new EloquentRefundRepository();
+        $refunds = new EloquentRefundRepository;
         $refunds->save($this->refund('ORD-P1', null));
         $refunds->save($this->refund('ORD-P2', null));
         $refunds->save($this->refund('ORD-P1', null));
@@ -98,7 +99,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     public function test_unfulfilled_payment_lookup_runs_on_this_database(): void
     {
-        $repository = new EloquentPaymentRepository();
+        $repository = new EloquentPaymentRepository;
         $paidAt = new \DateTimeImmutable('-1 hour');
 
         $due = $this->payment('ORD-F1', 'ORD-F1');
@@ -123,7 +124,7 @@ final class DatabaseGuaranteesTest extends TestCase
         $refunded->paid_at = $paidAt;
         $repository->save($refunded);
 
-        $now = new \DateTimeImmutable();
+        $now = new \DateTimeImmutable;
         $references = static fn (iterable $payments): array => array_map(
             static fn (Payment $payment): string => (string) $payment->reference,
             [...$payments],
@@ -143,7 +144,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
         // Committed outside the test transaction so the other connection sees it.
         Capsule::connection()->rollBack();
-        $repository = new EloquentPaymentRepository();
+        $repository = new EloquentPaymentRepository;
         $repository->save($this->payment('ORD-LOCK', 'ORD-LOCK'));
 
         $first = Capsule::connection();
@@ -158,13 +159,13 @@ final class DatabaseGuaranteesTest extends TestCase
         $blocked = false;
         try {
             $second->transaction(static function () use ($second): void {
-                $second->table(\Mo7mud\LaravelPaymentGateway\Support\PackageConfig::table('payments'))->where('reference', 'ORD-LOCK')->lockForUpdate()->first();
+                $second->table(PackageConfig::table('payments'))->where('reference', 'ORD-LOCK')->lockForUpdate()->first();
             });
         } catch (QueryException) {
             $blocked = true;
         } finally {
             $first->rollBack();
-            $first->table(\Mo7mud\LaravelPaymentGateway\Support\PackageConfig::table('payments'))->where('reference', 'ORD-LOCK')->delete();
+            $first->table(PackageConfig::table('payments'))->where('reference', 'ORD-LOCK')->delete();
             $first->beginTransaction();
         }
 
@@ -173,7 +174,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     private function payment(string $reference, string $merchantReference): Payment
     {
-        $payment = new Payment();
+        $payment = new Payment;
         $payment->reference = $reference;
         $payment->gateway = 'kashier';
         $payment->status = PaymentStatus::PENDING;
@@ -186,7 +187,7 @@ final class DatabaseGuaranteesTest extends TestCase
 
     private function refund(string $reference, ?string $key): PaymentRefund
     {
-        $refund = new PaymentRefund();
+        $refund = new PaymentRefund;
         $refund->uuid = Uuid::v4();
         $refund->payment_reference = $reference;
         $refund->gateway = 'kashier';

@@ -16,7 +16,7 @@ final class SyncIntegrationsCommand extends Command
     public function handle(PaymentIntegrationService $integrations): int
     {
         $integrations->syncDefinitions();
-        $this->info('Payment integrations synchronised. Enabled gateways: ' . implode(', ', $integrations->activeGatewayKeys()));
+        $this->info('Payment integrations synchronised. Enabled gateways: '.implode(', ', $integrations->activeGatewayKeys()));
 
         return self::SUCCESS;
     }

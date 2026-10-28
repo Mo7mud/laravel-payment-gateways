@@ -6,6 +6,7 @@ namespace Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk;
 
 use Illuminate\Http\Client\Factory;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkApiException;
+use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException;
 use Mo7mud\LaravelPaymentGateway\Support\Json;
 
 final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPagesInterface
@@ -16,8 +17,7 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
         private readonly string $apiBaseUrl,
         private readonly int $timeout = 15,
         private readonly int $connectTimeout = 5,
-    ) {
-    }
+    ) {}
 
     public function getPaymentMethods(): array
     {
@@ -78,13 +78,13 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
 
     public function getRefundDetails(int $refundId): array
     {
-        return $this->request('get', '/api/v3/refund/details/' . rawurlencode((string) $refundId));
+        return $this->request('get', '/api/v3/refund/details/'.rawurlencode((string) $refundId));
     }
 
     private function request(string $method, string $path, ?array $body = null, array $query = []): array
     {
         if ($this->apiBaseUrl === '') {
-            throw new \Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException('Fawaterk API base URL is required.');
+            throw new FawaterkConfigurationException('Fawaterk API base URL is required.');
         }
 
         $attempts = 0;
@@ -105,21 +105,22 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
                     'post' => Json::containsDecimals($body ?? [])
                         ? $pending->withBody(Json::encode($body ?? []), 'application/json')->post($this->url($path, $query))
                         : $pending->post($this->url($path, $query), $body ?? []),
-                    default => throw new FawaterkApiException('Unsupported Fawaterk HTTP method [' . $method . '].'),
+                    default => throw new FawaterkApiException('Unsupported Fawaterk HTTP method ['.$method.'].'),
                 };
             } catch (FawaterkApiException $e) {
                 throw $e;
             } catch (\Throwable $e) {
-                throw new FawaterkApiException('Fawaterk API request failed: ' . $e::class);
+                throw new FawaterkApiException('Fawaterk API request failed: '.$e::class);
             }
 
             if ($response->status() === 401 && $attempts === 1) {
                 $this->tokens->forgetAccessToken();
+
                 continue;
             }
 
             $json = $response->json();
-            if (!is_array($json)) {
+            if (! is_array($json)) {
                 $json = ['raw' => mb_substr((string) $response->body(), 0, 2000)];
             }
 
@@ -145,9 +146,9 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
 
     private function url(string $path, array $query = []): string
     {
-        $url = rtrim($this->apiBaseUrl, '/') . '/' . ltrim($path, '/');
+        $url = rtrim($this->apiBaseUrl, '/').'/'.ltrim($path, '/');
         if ($query !== []) {
-            $url .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+            $url .= '?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
         }
 
         return $url;

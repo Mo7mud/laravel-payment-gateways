@@ -21,7 +21,7 @@ final class PaymentStateManager
 
     public function transition(PaymentStatus $from, PaymentStatus $to): PaymentStatus
     {
-        if (!$this->canTransition($from, $to)) {
+        if (! $this->canTransition($from, $to)) {
             throw new InvalidPaymentStateTransitionException($from, $to);
         }
 

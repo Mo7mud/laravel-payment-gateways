@@ -18,14 +18,12 @@ final class EnvironmentManager
 {
     private const KEY_PATTERN = '/^[A-Z][A-Z0-9_]*$/';
 
-    public function __construct(private readonly ?string $path = null)
-    {
-    }
+    public function __construct(private readonly ?string $path = null) {}
 
     public function get(string $key, mixed $default = null): mixed
     {
         $path = $this->path();
-        if (!is_file($path) || !is_readable($path)) {
+        if (! is_file($path) || ! is_readable($path)) {
             return $default;
         }
 
@@ -55,7 +53,7 @@ final class EnvironmentManager
     }
 
     /**
-     * @param array<string, string|int|bool|null> $values null values are skipped
+     * @param  array<string, string|int|bool|null>  $values  null values are skipped
      */
     public function set(array $values): void
     {
@@ -64,12 +62,12 @@ final class EnvironmentManager
             if ($value === null) {
                 continue;
             }
-            if (!is_string($key) || preg_match(self::KEY_PATTERN, $key) !== 1) {
+            if (! is_string($key) || preg_match(self::KEY_PATTERN, $key) !== 1) {
                 throw new InvalidArgumentException('Invalid environment variable name.');
             }
 
             $string = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
-            $lines[$key] = $key . '=' . $this->encode($key, $string);
+            $lines[$key] = $key.'='.$this->encode($key, $string);
         }
 
         if ($lines === []) {
@@ -77,12 +75,12 @@ final class EnvironmentManager
         }
 
         $path = $this->path();
-        if (!is_file($path) || !is_writable($path) || !is_writable(dirname($path))) {
+        if (! is_file($path) || ! is_writable($path) || ! is_writable(dirname($path))) {
             throw new RuntimeException('The application environment file is not writable.');
         }
 
-        $lock = fopen(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'payment-gateway-env-' . md5($path) . '.lock', 'c');
-        if ($lock === false || !flock($lock, LOCK_EX)) {
+        $lock = fopen(sys_get_temp_dir().DIRECTORY_SEPARATOR.'payment-gateway-env-'.md5($path).'.lock', 'c');
+        if ($lock === false || ! flock($lock, LOCK_EX)) {
             throw new RuntimeException('Unable to lock the application environment file.');
         }
 
@@ -96,7 +94,7 @@ final class EnvironmentManager
                 $count = 0;
                 // A callback, not a replacement string: "$1" or "\0" in a value must stay literal.
                 $contents = preg_replace_callback(
-                    '/^(?:export[ \t]+)?' . preg_quote($key, '/') . '[ \t]*=.*$/m',
+                    '/^(?:export[ \t]+)?'.preg_quote($key, '/').'[ \t]*=.*$/m',
                     static fn (): string => $line,
                     $contents,
                     1,
@@ -108,7 +106,7 @@ final class EnvironmentManager
                 }
 
                 if ($count === 0) {
-                    $contents = rtrim($contents, "\r\n") . PHP_EOL . $line . PHP_EOL;
+                    $contents = rtrim($contents, "\r\n").PHP_EOL.$line.PHP_EOL;
                 }
             }
 
@@ -142,7 +140,7 @@ final class EnvironmentManager
             @chgrp($temporary, $group);
         }
 
-        if (!rename($temporary, $path)) {
+        if (! rename($temporary, $path)) {
             @unlink($temporary);
             throw new RuntimeException('Unable to replace the application environment file.');
         }
@@ -158,7 +156,7 @@ final class EnvironmentManager
             throw new InvalidArgumentException("The value for {$key} cannot contain a single quote.");
         }
 
-        return $value === '' ? '' : "'" . $value . "'";
+        return $value === '' ? '' : "'".$value."'";
     }
 
     private function decode(string $raw): string
@@ -186,8 +184,9 @@ final class EnvironmentManager
                         'r' => "\r",
                         't' => "\t",
                         '"', '\\', '$' => $next,
-                        default => '\\' . $next,
+                        default => '\\'.$next,
                     };
+
                     continue;
                 }
                 if ($char === '"') {

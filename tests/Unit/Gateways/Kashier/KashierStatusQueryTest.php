@@ -7,19 +7,22 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Gateways\Kashier;
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
-use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
+use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierConfigurationException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierClientInterface;
+use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierStatusMapper;
-use PHPUnit\Framework\TestCase;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
+use PHPUnit\Framework\Assert;
+use PHPUnit\Framework\TestCase;
 
 final class KashierStatusQueryTest extends TestCase
 {
     public function test_create_payment_uses_the_gateway_configuration_for_session_payload(): void
     {
-        $client = new class implements KashierClientInterface {
+        $client = new class implements KashierClientInterface
+        {
             public array $payload = [];
 
             public function createPaymentSession(array $payload): array
@@ -33,12 +36,23 @@ final class KashierStatusQueryTest extends TestCase
                 ];
             }
 
-            public function getPaymentSession(string $sessionId): array { return []; }
-            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array { return []; }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+            public function getPaymentSession(string $sessionId): array
+            {
+                return [];
+            }
+
+            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
+            {
+                return [];
+            }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST',
             'secret_key' => 'secret',
             'payment_api_key' => 'payment-key',
@@ -76,11 +90,17 @@ final class KashierStatusQueryTest extends TestCase
 
     public function test_captured_order_is_mapped_to_succeeded_and_transaction_is_extracted(): void
     {
-        $client = new class implements KashierClientInterface {
-            public function createPaymentSession(array $payload): array { return []; }
+        $client = new class implements KashierClientInterface
+        {
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
             public function getPaymentSession(string $sessionId): array
             {
-                \PHPUnit\Framework\Assert::assertSame('6a7f34b40a49ed120d0bd3d9', $sessionId);
+                Assert::assertSame('6a7f34b40a49ed120d0bd3d9', $sessionId);
+
                 return [
                     'message' => 'success',
                     'data' => [
@@ -107,9 +127,11 @@ final class KashierStatusQueryTest extends TestCase
                     ],
                 ];
             }
+
             public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
             {
-                \PHPUnit\Framework\Assert::assertSame('SANDBOX-60Z56EZMVVRV4V7H', $merchantOrderId);
+                Assert::assertSame('SANDBOX-60Z56EZMVVRV4V7H', $merchantOrderId);
+
                 return [
                     'status' => 'SUCCESS',
                     'data' => [[
@@ -136,10 +158,14 @@ final class KashierStatusQueryTest extends TestCase
                     ]],
                 ];
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST', 'secret_key' => 'secret', 'payment_api_key' => 'payment-key', 'environment' => 'test',
             'return_url' => 'https://example.com/return', 'server_webhook' => '', 'allowed_methods' => 'card,wallet',
         ]);
@@ -154,12 +180,17 @@ final class KashierStatusQueryTest extends TestCase
         self::assertSame(0, $result->refundedAmount?->minorAmount);
     }
 
-
     public function test_direct_session_status_uses_session_endpoint_and_maps_paid(): void
     {
-        $client = new class implements KashierClientInterface {
-            public function createPaymentSession(array $payload): array { return []; }
-            public function getPaymentSession(string $sessionId): array {
+        $client = new class implements KashierClientInterface
+        {
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
+            public function getPaymentSession(string $sessionId): array
+            {
                 return [
                     'data' => [
                         'sessionId' => $sessionId,
@@ -176,13 +207,19 @@ final class KashierStatusQueryTest extends TestCase
                     ],
                 ];
             }
-            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array {
+
+            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
+            {
                 throw new \RuntimeException('Order reconciliation endpoint must not be used for direct status query.');
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST', 'secret_key' => 'secret', 'payment_api_key' => 'payment-key', 'environment' => 'test',
             'return_url' => 'https://example.com/return', 'server_webhook' => '', 'allowed_methods' => 'card,wallet',
         ]);
@@ -197,13 +234,22 @@ final class KashierStatusQueryTest extends TestCase
 
     public function test_reconciliation_uses_order_search_endpoint(): void
     {
-        $client = new class implements KashierClientInterface {
-            public function createPaymentSession(array $payload): array { return []; }
-            public function getPaymentSession(string $sessionId): array {
+        $client = new class implements KashierClientInterface
+        {
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
+            public function getPaymentSession(string $sessionId): array
+            {
                 throw new \RuntimeException('Session endpoint must not be used for reconciliation.');
             }
-            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array {
-                \PHPUnit\Framework\Assert::assertSame('ORDER-RECON', $merchantOrderId);
+
+            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
+            {
+                Assert::assertSame('ORDER-RECON', $merchantOrderId);
+
                 return [
                     'status' => 'SUCCESS',
                     'data' => [[
@@ -228,10 +274,14 @@ final class KashierStatusQueryTest extends TestCase
                     ]],
                 ];
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST', 'secret_key' => 'secret', 'payment_api_key' => 'payment-key', 'environment' => 'test',
             'return_url' => 'https://example.com/return', 'server_webhook' => '', 'allowed_methods' => 'card,wallet',
         ]);
@@ -244,12 +294,20 @@ final class KashierStatusQueryTest extends TestCase
         self::assertSame('Pending', $result->metadata['kashier_reconciliation_status']);
     }
 
-
     public function test_reconciliation_does_not_fall_back_to_an_unrelated_order(): void
     {
-        $client = new class implements KashierClientInterface {
-            public function createPaymentSession(array $payload): array { return []; }
-            public function getPaymentSession(string $sessionId): array { return []; }
+        $client = new class implements KashierClientInterface
+        {
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
+            public function getPaymentSession(string $sessionId): array
+            {
+                return [];
+            }
+
             public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
             {
                 return [
@@ -272,25 +330,35 @@ final class KashierStatusQueryTest extends TestCase
                     ]],
                 ];
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST', 'secret_key' => 'secret', 'payment_api_key' => 'payment-key', 'environment' => 'test',
             'return_url' => 'https://example.com/return', 'server_webhook' => '', 'allowed_methods' => 'card,wallet',
         ]);
 
-        $this->expectException(\Mo7mud\LaravelPaymentGateway\Gateways\Kashier\Exceptions\KashierConfigurationException::class);
+        $this->expectException(KashierConfigurationException::class);
         $gateway->reconcilePayment(new PaymentStatusRequest('TARGET-ORDER', 'TARGET-SESSION', 'TARGET-TX'));
     }
 
     public function test_fully_refunded_order_is_mapped_to_refunded(): void
     {
-        $client = new class implements KashierClientInterface {
-            public function createPaymentSession(array $payload): array { return []; }
+        $client = new class implements KashierClientInterface
+        {
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
             public function getPaymentSession(string $sessionId): array
             {
-                \PHPUnit\Framework\Assert::assertSame('6a7f34b40a49ed120d0bd3d9', $sessionId);
+                Assert::assertSame('6a7f34b40a49ed120d0bd3d9', $sessionId);
+
                 return [
                     'message' => 'success',
                     'data' => [
@@ -317,6 +385,7 @@ final class KashierStatusQueryTest extends TestCase
                     ],
                 ];
             }
+
             public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
             {
                 return ['status' => 'SUCCESS', 'data' => [[
@@ -326,10 +395,14 @@ final class KashierStatusQueryTest extends TestCase
                     'order' => ['amount' => 10, 'currency' => 'EGP'], 'transactions' => [],
                 ]]];
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper(), [
+        $gateway = new KashierGateway($client, new KashierSignatureVerifier('secret'), new KashierStatusMapper, [
             'merchant_id' => 'MID-TEST', 'secret_key' => 'secret', 'payment_api_key' => 'payment-key', 'environment' => 'test',
             'return_url' => 'https://example.com/return', 'server_webhook' => '', 'allowed_methods' => 'card,wallet',
         ]);

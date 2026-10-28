@@ -34,7 +34,7 @@ final class KashierPayloads
         $data['signatureKeys'] = $keys;
 
         $message = implode('&', array_map(
-            static fn (string $name): string => $name . '=' . rawurlencode(is_bool($data[$name]) ? ($data[$name] ? 'true' : 'false') : (string) $data[$name]),
+            static fn (string $name): string => $name.'='.rawurlencode(is_bool($data[$name]) ? ($data[$name] ? 'true' : 'false') : (string) $data[$name]),
             $keys,
         ));
 

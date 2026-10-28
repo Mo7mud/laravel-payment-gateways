@@ -15,6 +15,5 @@ abstract class PaymentEvent implements ShouldDispatchAfterCommit
     public function __construct(
         public readonly string $paymentReference,
         public readonly string $gateway,
-    ) {
-    }
+    ) {}
 }

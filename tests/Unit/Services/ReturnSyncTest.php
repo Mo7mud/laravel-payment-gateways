@@ -29,7 +29,8 @@ final class ReturnSyncTest extends TestCase
 {
     public function test_an_open_payment_is_checked_with_the_gateway_at_most_once_per_window(): void
     {
-        $gateway = new class () extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public int $statusQueries = 0;
 
             public function getPaymentStatus(PaymentStatusRequest $request): PaymentStatusResult
@@ -61,7 +62,7 @@ final class ReturnSyncTest extends TestCase
 
     public function test_a_per_payment_redirect_must_use_an_allowed_host(): void
     {
-        $service = $this->service(new MockGateway(), ['return_allowed_hosts' => ['shop.test']]);
+        $service = $this->service(new MockGateway, ['return_allowed_hosts' => ['shop.test']]);
 
         $this->create($service, 'RET-3', 'https://SHOP.test/paid/{reference}?s={status}');
         self::assertSame(['shop.test'], ReturnRedirect::hostsFromString(' shop.test, ,'));
@@ -84,12 +85,12 @@ final class ReturnSyncTest extends TestCase
     {
         return new PaymentService(
             new GatewayManager([$gateway]),
-            new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
             options: $options,
-            cache: new CacheRepository(new ArrayStore()),
+            cache: new CacheRepository(new ArrayStore),
         );
     }
 

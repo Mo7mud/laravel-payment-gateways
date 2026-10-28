@@ -33,7 +33,7 @@ final class ReturnEndpointTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
+        $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['config']->set('cache.default', 'array');
         $app['config']->set('payment-gateway.reconciliation.schedule', false);
         $app['config']->set('payment-gateway.gateways.mock', MockGateway::class);
@@ -45,10 +45,10 @@ final class ReturnEndpointTest extends TestCase
     {
         parent::setUp();
 
-        $this->app->instance(PaymentRepositoryInterface::class, new InMemoryPaymentRepository());
-        $this->app->instance(WebhookEventRepositoryInterface::class, new InMemoryWebhookEventRepository());
-        $this->app->instance(RefundRepositoryInterface::class, new InMemoryRefundRepository());
-        $this->app->instance(TransactionRunnerInterface::class, new InMemoryTransactionRunner());
+        $this->app->instance(PaymentRepositoryInterface::class, new InMemoryPaymentRepository);
+        $this->app->instance(WebhookEventRepositoryInterface::class, new InMemoryWebhookEventRepository);
+        $this->app->instance(RefundRepositoryInterface::class, new InMemoryRefundRepository);
+        $this->app->instance(TransactionRunnerInterface::class, new InMemoryTransactionRunner);
     }
 
     public function test_an_open_payment_is_checked_with_the_gateway_before_the_redirect(): void

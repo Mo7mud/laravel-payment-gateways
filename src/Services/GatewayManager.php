@@ -37,16 +37,17 @@ final class GatewayManager
     private Closure $resolver;
 
     /**
-     * @param iterable<int|string, PaymentGatewayInterface|class-string|Closure> $gateways
-     * @param (Closure(string): PaymentGatewayInterface)|null $resolver
+     * @param  iterable<int|string, PaymentGatewayInterface|class-string|Closure>  $gateways
+     * @param  (Closure(string): PaymentGatewayInterface)|null  $resolver
      */
     public function __construct(iterable $gateways, ?Closure $resolver = null)
     {
-        $this->resolver = $resolver ?? static fn (string $class): PaymentGatewayInterface => new $class();
+        $this->resolver = $resolver ?? static fn (string $class): PaymentGatewayInterface => new $class;
 
         foreach ($gateways as $key => $gateway) {
             if ($gateway instanceof PaymentGatewayInterface) {
                 $this->resolved[self::keyOf($gateway->name())] = $gateway;
+
                 continue;
             }
 
@@ -82,7 +83,8 @@ final class GatewayManager
             try {
                 $gateway = $this->build($definition);
             } catch (Throwable $e) {
-                $this->errors[is_string($definition) ? $definition : 'closure#' . $index] = $e->getMessage();
+                $this->errors[is_string($definition) ? $definition : 'closure#'.$index] = $e->getMessage();
+
                 continue;
             }
 
@@ -96,8 +98,8 @@ final class GatewayManager
 
         $message = sprintf('Payment gateway [%s] is not registered.', $key);
         if ($this->errors !== []) {
-            $message .= ' Some gateways failed to load: ' . implode('; ', array_map(
-                static fn (string $definition, string $error): string => $definition . ': ' . $error,
+            $message .= ' Some gateways failed to load: '.implode('; ', array_map(
+                static fn (string $definition, string $error): string => $definition.': '.$error,
                 array_keys($this->errors),
                 $this->errors,
             ));
@@ -117,7 +119,7 @@ final class GatewayManager
     {
         $gateway = $definition instanceof Closure ? $definition() : ($this->resolver)($definition);
 
-        if (!$gateway instanceof PaymentGatewayInterface) {
+        if (! $gateway instanceof PaymentGatewayInterface) {
             throw new InvalidArgumentException('Gateway definition does not resolve to a PaymentGatewayInterface.');
         }
 

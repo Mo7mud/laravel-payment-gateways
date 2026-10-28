@@ -22,7 +22,7 @@ final class FawaterkMapperTest extends TestCase
             customer: new CustomerData(name: 'Ahmed Ali', email: 'ahmed@example.com'),
         );
 
-        $result = (new FawaterkMapper())->creationResult($request, [
+        $result = (new FawaterkMapper)->creationResult($request, [
             'status' => 'success',
             'data' => [
                 'intent_key' => '550e8400-e29b-41d4-a716-446655440000',
@@ -45,7 +45,7 @@ final class FawaterkMapperTest extends TestCase
             customer: new CustomerData(name: 'Ahmed Ali'),
         );
 
-        $result = (new FawaterkMapper())->creationResult($request, [
+        $result = (new FawaterkMapper)->creationResult($request, [
             'status' => 'success',
             'data' => [
                 'intent_key' => 'intent-fawry',
@@ -76,7 +76,7 @@ final class FawaterkMapperTest extends TestCase
             'paidAt' => '2026-08-24 12:00:00',
         ];
 
-        $result = (new FawaterkMapper())->webhookResult('paid', $payload);
+        $result = (new FawaterkMapper)->webhookResult('paid', $payload);
 
         self::assertSame('PAY-FAW-003', $result->paymentReference);
         self::assertSame(PaymentStatus::SUCCEEDED, $result->status);
@@ -96,7 +96,7 @@ final class FawaterkMapperTest extends TestCase
             'approvedAt' => '2026-08-24 12:05:00',
         ];
 
-        $result = (new FawaterkMapper())->webhookResult('refund', $payload);
+        $result = (new FawaterkMapper)->webhookResult('refund', $payload);
 
         self::assertSame('', $result->paymentReference);
         self::assertSame('12345', $result->gatewayTransactionId);

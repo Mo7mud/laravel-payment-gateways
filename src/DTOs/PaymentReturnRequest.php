@@ -9,6 +9,5 @@ final readonly class PaymentReturnRequest
     public function __construct(
         public array $query,
         public array $metadata = [],
-    ) {
-    }
+    ) {}
 }

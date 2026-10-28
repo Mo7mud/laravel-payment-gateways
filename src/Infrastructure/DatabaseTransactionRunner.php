@@ -10,9 +10,7 @@ use Mo7mud\LaravelPaymentGateway\Contracts\TransactionRunnerInterface;
 
 final class DatabaseTransactionRunner implements TransactionRunnerInterface
 {
-    public function __construct(private readonly DatabaseManager $database)
-    {
-    }
+    public function __construct(private readonly DatabaseManager $database) {}
 
     public function run(Closure $callback): mixed
     {

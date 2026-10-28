@@ -14,6 +14,7 @@ use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventStatus;
 use Mo7mud\LaravelPaymentGateway\Exceptions\PaymentNotFoundException;
+use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierStatusMapper;
@@ -39,7 +40,8 @@ final class ConcurrencyAndIdentityTest extends TestCase
 {
     public function test_a_concurrent_request_with_the_same_idempotency_key_gets_the_first_result(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public int $calls = 0;
 
             public function refund(RefundPaymentRequest $request): RefundResult
@@ -52,20 +54,46 @@ final class ConcurrencyAndIdentityTest extends TestCase
 
         // Simulates the race: the lookup before the lock misses a row that a
         // concurrent request committed while this one waited for the lock.
-        $refunds = new class(new InMemoryRefundRepository()) implements RefundRepositoryInterface {
+        $refunds = new class(new InMemoryRefundRepository) implements RefundRepositoryInterface
+        {
             public bool $missNextKeyLookup = false;
 
-            public function __construct(private readonly InMemoryRefundRepository $inner)
+            public function __construct(private readonly InMemoryRefundRepository $inner) {}
+
+            public function save(PaymentRefund $refund): PaymentRefund
             {
+                return $this->inner->save($refund);
             }
 
-            public function save(PaymentRefund $refund): PaymentRefund { return $this->inner->save($refund); }
-            public function findByUuid(string $uuid): ?PaymentRefund { return $this->inner->findByUuid($uuid); }
-            public function findByGatewayReference(string $gateway, string $reference): ?PaymentRefund { return $this->inner->findByGatewayReference($gateway, $reference); }
-            public function findOldestUnmatchedPending(string $paymentReference, int $amountMinor): ?PaymentRefund { return $this->inner->findOldestUnmatchedPending($paymentReference, $amountMinor); }
-            public function pendingFor(string $paymentReference): array { return $this->inner->pendingFor($paymentReference); }
-            public function sumAmount(string $paymentReference, RefundStatus $status): int { return $this->inner->sumAmount($paymentReference, $status); }
-            public function paymentsWithPendingRefunds(DateTimeInterface $before, int $limit = 100): array { return $this->inner->paymentsWithPendingRefunds($before, $limit); }
+            public function findByUuid(string $uuid): ?PaymentRefund
+            {
+                return $this->inner->findByUuid($uuid);
+            }
+
+            public function findByGatewayReference(string $gateway, string $reference): ?PaymentRefund
+            {
+                return $this->inner->findByGatewayReference($gateway, $reference);
+            }
+
+            public function findOldestUnmatchedPending(string $paymentReference, int $amountMinor): ?PaymentRefund
+            {
+                return $this->inner->findOldestUnmatchedPending($paymentReference, $amountMinor);
+            }
+
+            public function pendingFor(string $paymentReference): array
+            {
+                return $this->inner->pendingFor($paymentReference);
+            }
+
+            public function sumAmount(string $paymentReference, RefundStatus $status): int
+            {
+                return $this->inner->sumAmount($paymentReference, $status);
+            }
+
+            public function paymentsWithPendingRefunds(DateTimeInterface $before, int $limit = 100): array
+            {
+                return $this->inner->paymentsWithPendingRefunds($before, $limit);
+            }
 
             public function findByIdempotencyKey(string $paymentReference, string $idempotencyKey): ?PaymentRefund
             {
@@ -81,10 +109,10 @@ final class ConcurrencyAndIdentityTest extends TestCase
 
         $service = new PaymentService(
             new GatewayManager([$gateway]),
-            $payments = new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
+            $payments = new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
             $refunds,
         );
         $service->createPayment('mock', new CreatePaymentRequest('PAY-IK', Money::fromDecimal('10.00', Currency::egp())));
@@ -92,7 +120,7 @@ final class ConcurrencyAndIdentityTest extends TestCase
         $service->getPaymentStatus(new PaymentStatusRequest('PAY-IK'));
 
         // The "other" request's committed row.
-        $row = new PaymentRefund();
+        $row = new PaymentRefund;
         $row->uuid = Uuid::v4();
         $row->payment_reference = 'PAY-IK';
         $row->gateway = 'mock';
@@ -115,8 +143,10 @@ final class ConcurrencyAndIdentityTest extends TestCase
 
     public function test_a_new_payment_never_reuses_another_payments_merchant_order_id(): void
     {
-        $gateway = new class extends MockGateway {
+        $gateway = new class extends MockGateway
+        {
             public bool $fail = false;
+
             /** @var list<string> */
             public array $orders = [];
 
@@ -132,11 +162,11 @@ final class ConcurrencyAndIdentityTest extends TestCase
         };
         $service = new PaymentService(
             new GatewayManager([$gateway]),
-            $payments = new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            $payments = new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
         );
 
         $gateway->fail = true;
@@ -154,21 +184,21 @@ final class ConcurrencyAndIdentityTest extends TestCase
 
         $other = (string) $payments->findByReference($retryReference)?->gateway_order_reference;
         self::assertNotSame($retryReference, $other);
-        self::assertStringStartsWith($retryReference . '-A1-', $other);
+        self::assertStringStartsWith($retryReference.'-A1-', $other);
         // Every merchant order id ever sent to the gateway is distinct.
         self::assertSame($gateway->orders, array_values(array_unique($gateway->orders)));
     }
 
     public function test_a_similar_looking_merchant_order_id_does_not_resolve_to_the_payment(): void
     {
-        $client = new FakeKashierClient();
+        $client = new FakeKashierClient;
         $service = new PaymentService(
-            new GatewayManager([new KashierGateway($client, new KashierSignatureVerifier(KashierPayloads::API_KEY), new KashierStatusMapper(), ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/r'])]),
-            new InMemoryPaymentRepository(),
-            new PaymentStateManager(),
-            new InMemoryWebhookEventRepository(),
-            new InMemoryTransactionRunner(),
-            new InMemoryRefundRepository(),
+            new GatewayManager([new KashierGateway($client, new KashierSignatureVerifier(KashierPayloads::API_KEY), new KashierStatusMapper, ['merchant_id' => 'MID-TEST', 'return_url' => 'https://shop.test/r'])]),
+            new InMemoryPaymentRepository,
+            new PaymentStateManager,
+            new InMemoryWebhookEventRepository,
+            new InMemoryTransactionRunner,
+            new InMemoryRefundRepository,
         );
         $service->createPayment('kashier', new CreatePaymentRequest('ORD-X', Money::fromDecimal('100.00', Currency::egp())));
 
@@ -178,15 +208,15 @@ final class ConcurrencyAndIdentityTest extends TestCase
 
     public function test_a_kashier_webhook_signed_for_another_merchant_is_rejected(): void
     {
-        $gateway = new KashierGateway(new FakeKashierClient(), new KashierSignatureVerifier(KashierPayloads::API_KEY), new KashierStatusMapper(), ['merchant_id' => 'MID-TEST']);
+        $gateway = new KashierGateway(new FakeKashierClient, new KashierSignatureVerifier(KashierPayloads::API_KEY), new KashierStatusMapper, ['merchant_id' => 'MID-TEST']);
 
-        $this->expectException(\Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException::class);
+        $this->expectException(WebhookVerificationException::class);
         $gateway->handleWebhook(KashierPayloads::webhook('pay', 'SUCCESS', 'TX-1', 'ORD-1', extra: ['merchantId' => 'MID-OTHER']));
     }
 
     public function test_a_failure_never_overwrites_a_processed_event(): void
     {
-        $events = new InMemoryWebhookEventRepository();
+        $events = new InMemoryWebhookEventRepository;
         $events->storeIfAbsent('kashier', 'evt', 'pay', 'ORD', 'hash', [], WebhookEventStatus::RECEIVED);
         $events->markStatus('kashier', 'evt', WebhookEventStatus::PROCESSED, 'applied');
         $events->markStatus('kashier', 'evt', WebhookEventStatus::FAILED, 'late failure');

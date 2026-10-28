@@ -89,8 +89,11 @@ final class PaymentService
     private const GENERIC_RESERVED_KEYS = ['gateway_reference', 'gateway_transaction_id', 'gateway_order_reference'];
 
     private readonly RefundRepositoryInterface $refunds;
+
     private readonly LoggerInterface $logger;
+
     private readonly PayloadRedactor $redactor;
+
     private readonly array $options;
 
     /** @var list<object> events raised inside the current transaction */
@@ -110,9 +113,9 @@ final class PaymentService
         array $options = [],
         private readonly ?CacheRepository $cache = null,
     ) {
-        $this->refunds = $refunds ?? new InMemoryRefundRepository();
-        $this->logger = $logger ?? new NullLogger();
-        $this->redactor = $redactor ?? new PayloadRedactor();
+        $this->refunds = $refunds ?? new InMemoryRefundRepository;
+        $this->logger = $logger ?? new NullLogger;
+        $this->redactor = $redactor ?? new PayloadRedactor;
         $this->options = array_replace([
             'creation_lock_seconds' => 120,
             // %1$s reference, %2$d attempt, %3$s random token (collision-proof).
@@ -140,11 +143,11 @@ final class PaymentService
         $gatewayKey = GatewayManager::keyOf($gatewayName);
         $gateway = $this->gateways->gateway($gatewayKey);
 
-        if (!$gateway instanceof PaymentCreatorInterface) {
+        if (! $gateway instanceof PaymentCreatorInterface) {
             throw new UnsupportedPaymentOperationException($gatewayKey, 'create_payment');
         }
 
-        if ($this->availability !== null && !$this->availability->isEnabled($gatewayKey)) {
+        if ($this->availability !== null && ! $this->availability->isEnabled($gatewayKey)) {
             throw new GatewayDisabledException($gatewayKey);
         }
 
@@ -170,7 +173,7 @@ final class PaymentService
         try {
             $result = $gateway->createPayment($request->withGatewayOrderReference($payment->merchantOrderReference()));
 
-            if ($result->amount !== null && !$request->amount->isEquivalentTo($result->amount)) {
+            if ($result->amount !== null && ! $request->amount->isEquivalentTo($result->amount)) {
                 throw new PaymentAmountMismatchException($request->amount, $result->amount);
             }
         } catch (Throwable $e) {
@@ -205,12 +208,12 @@ final class PaymentService
 
     private function assertReturnRedirectAllowed(array $metadata): void
     {
-        if (!array_key_exists(ReturnRedirect::METADATA_KEY, $metadata)) {
+        if (! array_key_exists(ReturnRedirect::METADATA_KEY, $metadata)) {
             return;
         }
 
         $url = $metadata[ReturnRedirect::METADATA_KEY];
-        if (!is_string($url) || !ReturnRedirect::isAllowed($url, (array) $this->options['return_allowed_hosts'])) {
+        if (! is_string($url) || ! ReturnRedirect::isAllowed($url, (array) $this->options['return_allowed_hosts'])) {
             throw new InvalidArgumentException(sprintf(
                 'Metadata [%s] must be an http(s) URL on a host listed in payment-gateway.return.allowed_hosts.',
                 ReturnRedirect::METADATA_KEY,
@@ -224,7 +227,7 @@ final class PaymentService
         $existing = $this->payments->findByReferenceForUpdate($request->paymentReference);
 
         if ($existing === null) {
-            $payment = new Payment();
+            $payment = new Payment;
             $payment->reference = $request->paymentReference;
             $payment->gateway = $gatewayKey;
             $payment->status = PaymentStatus::INITIATING;
@@ -246,11 +249,11 @@ final class PaymentService
         if ($existing->gatewayKey() !== $gatewayKey) {
             throw new PaymentReferenceConflictException(
                 $request->paymentReference,
-                'it belongs to gateway [' . $existing->gatewayKey() . ']',
+                'it belongs to gateway ['.$existing->gatewayKey().']',
             );
         }
 
-        if (!$existing->amountMoney()->isEquivalentTo($request->amount)) {
+        if (! $existing->amountMoney()->isEquivalentTo($request->amount)) {
             throw new PaymentReferenceConflictException(
                 $request->paymentReference,
                 'it was created for a different amount or currency',
@@ -371,7 +374,7 @@ final class PaymentService
         $payment = $this->requirePayment($request->paymentReference);
         $gateway = $this->gateways->gateway($payment->gatewayKey());
 
-        if (!$gateway instanceof PaymentStatusProviderInterface) {
+        if (! $gateway instanceof PaymentStatusProviderInterface) {
             throw new UnsupportedPaymentOperationException($payment->gatewayKey(), 'status_query');
         }
 
@@ -387,7 +390,7 @@ final class PaymentService
         $payment = $this->requirePayment($request->paymentReference);
         $gateway = $this->gateways->gateway($payment->gatewayKey());
 
-        if (!$gateway instanceof PaymentReconciliationInterface) {
+        if (! $gateway instanceof PaymentReconciliationInterface) {
             throw new UnsupportedPaymentOperationException($payment->gatewayKey(), 'reconciliation');
         }
 
@@ -403,7 +406,7 @@ final class PaymentService
     {
         return $this->atomic(function () use ($reference): bool {
             $payment = $this->payments->findByReferenceForUpdate($reference);
-            if ($payment === null || $payment->status !== PaymentStatus::INITIATING || !$this->isStaleInitiation($payment)) {
+            if ($payment === null || $payment->status !== PaymentStatus::INITIATING || ! $this->isStaleInitiation($payment)) {
                 return false;
             }
 
@@ -418,12 +421,12 @@ final class PaymentService
     /** Marks an unpaid payment EXPIRED once its checkout expiry (plus grace) has passed. */
     public function expireIfDue(string $reference, ?DateTimeImmutable $now = null): bool
     {
-        $now ??= new DateTimeImmutable();
+        $now ??= new DateTimeImmutable;
         $grace = (int) $this->options['expiry_grace_minutes'] * 60;
 
         return $this->atomic(function () use ($reference, $now, $grace): bool {
             $payment = $this->payments->findByReferenceForUpdate($reference);
-            if ($payment === null || !in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)) {
+            if ($payment === null || ! in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)) {
                 return false;
             }
 
@@ -442,7 +445,7 @@ final class PaymentService
     /** Exponential back-off, so failing payments cannot starve the reconciliation batch. */
     public function scheduleNextReconciliation(string $reference, ?DateTimeImmutable $now = null): void
     {
-        $now ??= new DateTimeImmutable();
+        $now ??= new DateTimeImmutable;
 
         $this->atomic(function () use ($reference, $now): void {
             $payment = $this->payments->findByReferenceForUpdate($reference);
@@ -457,7 +460,7 @@ final class PaymentService
             );
 
             $payment->reconcile_attempts = $attempts;
-            $payment->next_reconcile_at = $now->modify('+' . $delay . ' seconds');
+            $payment->next_reconcile_at = $now->modify('+'.$delay.' seconds');
             $this->payments->save($payment);
         });
     }
@@ -486,7 +489,7 @@ final class PaymentService
             throw new PaymentCreationInProgressException($reference);
         }
 
-        if (!$this->isCancellable($payment->status)) {
+        if (! $this->isCancellable($payment->status)) {
             return $payment->status;
         }
 
@@ -538,12 +541,12 @@ final class PaymentService
      */
     public function markFulfilled(string $reference, ?DateTimeImmutable $now = null): bool
     {
-        $now ??= new DateTimeImmutable();
+        $now ??= new DateTimeImmutable;
 
         return $this->atomic(function () use ($reference, $now): bool {
             $payment = $this->payments->findByReferenceForUpdate($reference) ?? throw new PaymentNotFoundException($reference);
 
-            if (!$payment->status->isPaid()) {
+            if (! $payment->status->isPaid()) {
                 throw new PaymentNotPaidException($reference, $payment->status);
             }
 
@@ -567,7 +570,7 @@ final class PaymentService
      */
     public function redispatchUnfulfilled(DateTimeInterface $paidBefore, int $limit = 100, ?DateTimeImmutable $now = null): int
     {
-        $now ??= new DateTimeImmutable();
+        $now ??= new DateTimeImmutable;
         $maxDispatches = max(1, (int) $this->options['fulfilment_max_dispatches']);
         $raised = 0;
 
@@ -599,7 +602,7 @@ final class PaymentService
             // Re-checked under the lock: markFulfilled() may have run since the lookup.
             if ($payment === null
                 || $payment->fulfilled_at !== null
-                || !$payment->status->awaitsFulfilment()
+                || ! $payment->status->awaitsFulfilment()
                 || $payment->paid_at === null
                 || $payment->paid_at->getTimestamp() > $paidBefore->getTimestamp()
                 || $dispatches >= $maxDispatches
@@ -614,7 +617,7 @@ final class PaymentService
             );
 
             $payment->fulfilment_dispatches = $dispatches;
-            $payment->next_fulfilment_dispatch_at = $now->modify('+' . $delay . ' seconds');
+            $payment->next_fulfilment_dispatch_at = $now->modify('+'.$delay.' seconds');
             $this->payments->save($payment);
 
             $this->logger->warning('payment.fulfilment_redispatched', [
@@ -647,13 +650,12 @@ final class PaymentService
      * so the customer sees the real status before the webhook arrives; the
      * query string itself is never trusted.
      */
-
     public function handleReturn(PaymentReturnRequest $request, GatewayName|string $gatewayName): PaymentReturnResult
     {
         $gatewayKey = GatewayManager::keyOf($gatewayName);
         $gateway = $this->gateways->gateway($gatewayKey);
 
-        if (!$gateway instanceof PaymentReturnHandlerInterface) {
+        if (! $gateway instanceof PaymentReturnHandlerInterface) {
             throw new UnsupportedPaymentOperationException($gatewayKey, 'return_handling');
         }
 
@@ -680,9 +682,9 @@ final class PaymentService
 
     private function syncOnReturn(PaymentGatewayInterface $gateway, Payment $payment): Payment
     {
-        if (!(bool) $this->options['return_sync_status']
-            || !in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)
-            || !$gateway instanceof PaymentStatusProviderInterface) {
+        if (! (bool) $this->options['return_sync_status']
+            || ! in_array($payment->status, [PaymentStatus::PENDING, PaymentStatus::PROCESSING], true)
+            || ! $gateway instanceof PaymentStatusProviderInterface) {
             return $payment;
         }
 
@@ -690,7 +692,7 @@ final class PaymentService
 
         // A reloaded or replayed return page must not hammer the gateway API.
         $seconds = max(1, (int) $this->options['return_sync_lock_seconds']);
-        if ($this->cache !== null && !$this->cache->add('payment-gateway:return-sync:' . hash('sha256', $reference), 1, $seconds)) {
+        if ($this->cache !== null && ! $this->cache->add('payment-gateway:return-sync:'.hash('sha256', $reference), 1, $seconds)) {
             return $payment;
         }
 
@@ -718,7 +720,7 @@ final class PaymentService
         $gatewayKey = GatewayManager::keyOf($gatewayName);
         $gateway = $this->gateways->gateway($gatewayKey);
 
-        if (!$gateway instanceof WebhookHandlerInterface) {
+        if (! $gateway instanceof WebhookHandlerInterface) {
             throw new UnsupportedPaymentOperationException($gatewayKey, 'webhook');
         }
 
@@ -736,7 +738,7 @@ final class PaymentService
             status: WebhookEventStatus::RECEIVED,
         );
 
-        if (!$isNew) {
+        if (! $isNew) {
             $existing = $this->webhookEvents->find($gatewayKey, $eventId);
             if ($existing !== null && $existing->status instanceof WebhookEventStatus && $existing->status->isFinal()) {
                 return $result->asDuplicate();
@@ -765,7 +767,7 @@ final class PaymentService
                         ? $this->applyListedRefundWebhook($locked, $result, $refundList)
                         : $this->applyRefundWebhook($locked, $result, $verified),
                     WebhookEventKind::ATTEMPT_FAILED => $this->applyAttemptFailure($locked, $result),
-                    WebhookEventKind::IGNORED => 'ignored: ' . ($result->ignoreReason ?? 'not actionable'),
+                    WebhookEventKind::IGNORED => 'ignored: '.($result->ignoreReason ?? 'not actionable'),
                 };
 
                 $this->payments->save($locked);
@@ -805,7 +807,7 @@ final class PaymentService
         Payment $payment,
         WebhookResult $result,
     ): ?PaymentStatusResult {
-        if (!$result->requiresVerification || $result->kind === WebhookEventKind::IGNORED || $result->kind === WebhookEventKind::ATTEMPT_FAILED) {
+        if (! $result->requiresVerification || $result->kind === WebhookEventKind::IGNORED || $result->kind === WebhookEventKind::ATTEMPT_FAILED) {
             return null;
         }
 
@@ -863,7 +865,7 @@ final class PaymentService
                 $payment->next_reconcile_at = new DateTimeImmutable('+60 seconds');
             }
         } else {
-            if ($result->amount !== null && !$payment->amountMoney()->isEquivalentTo($result->amount)) {
+            if ($result->amount !== null && ! $payment->amountMoney()->isEquivalentTo($result->amount)) {
                 throw new PaymentAmountMismatchException($payment->amountMoney(), $result->amount);
             }
 
@@ -887,13 +889,13 @@ final class PaymentService
 
         $payment->metadata = array_replace($payment->metadata ?? [], PayloadRedactor::scalarsOnly($result->metadata));
 
-        if ($unconfirmed && !$changed) {
+        if ($unconfirmed && ! $changed) {
             return 'unconfirmed: the gateway does not report this payment as paid yet';
         }
 
         return $changed
-            ? 'applied: ' . $payment->status->value
-            : 'ignored: no state change (current ' . $payment->status->value . ')';
+            ? 'applied: '.$payment->status->value
+            : 'ignored: no state change (current '.$payment->status->value.')';
     }
 
     private function applyAttemptFailure(Payment $payment, WebhookResult $result): string
@@ -903,7 +905,7 @@ final class PaymentService
         $payment->metadata = array_replace($payment->metadata ?? [], [
             'last_attempt_status' => $result->gatewayStatus,
             'last_attempt_reason' => $reason,
-            'last_attempt_at' => ($result->occurredAt ?? new DateTimeImmutable())->format(DATE_ATOM),
+            'last_attempt_at' => ($result->occurredAt ?? new DateTimeImmutable)->format(DATE_ATOM),
         ]);
 
         if ($payment->status->isPaid()) {
@@ -917,7 +919,7 @@ final class PaymentService
             $reason,
         );
 
-        return 'applied: attempt failure recorded, payment remains ' . $payment->status->value;
+        return 'applied: attempt failure recorded, payment remains '.$payment->status->value;
     }
 
     private function applyRefundWebhook(Payment $payment, WebhookResult $result, ?PaymentStatusResult $verified): string
@@ -940,22 +942,22 @@ final class PaymentService
         // A void or reversal before capture cancels the payment rather than refunding it.
         if ($notice->isCancellation() && $payment->status->isUnpaid()) {
             if ($notice->status !== RefundStatus::SUCCEEDED) {
-                return 'ignored: unsuccessful ' . $notice->type . ' before capture';
+                return 'ignored: unsuccessful '.$notice->type.' before capture';
             }
 
             // A claim that needs verification only cancels when the gateway API agrees
             // that the payment is closed; otherwise a replayed notification could
             // cancel a payment that is about to be captured.
-            if ($result->requiresVerification && !($verified?->status?->isClosedUnpaid() ?? false)) {
+            if ($result->requiresVerification && ! ($verified?->status?->isClosedUnpaid() ?? false)) {
                 $payment->next_reconcile_at = new DateTimeImmutable('+5 minutes');
 
                 return 'unconfirmed: the gateway does not report this payment as cancelled';
             }
 
             $target = $verified?->status !== null && $verified->status->isClosedUnpaid() ? $verified->status : PaymentStatus::CANCELLED;
-            $changed = $this->applyStatus($payment, $target, $result->gatewayStatus, $result->occurredAt, 'webhook_' . $notice->type);
+            $changed = $this->applyStatus($payment, $target, $result->gatewayStatus, $result->occurredAt, 'webhook_'.$notice->type);
 
-            return $changed ? 'applied: cancelled by ' . $notice->type : 'ignored: no state change';
+            return $changed ? 'applied: cancelled by '.$notice->type : 'ignored: no state change';
         }
 
         $existing = null;
@@ -968,14 +970,14 @@ final class PaymentService
             // knows; they never create one (a new pending row would reserve money).
             $row = $existing ?? $this->refunds->findOldestUnmatchedPending((string) $payment->reference, $amount->minorAmount);
             if ($row === null) {
-                return 'ignored: ' . $notice->status->value . ' ' . $notice->type . ' without a matching local refund';
+                return 'ignored: '.$notice->status->value.' '.$notice->type.' without a matching local refund';
             }
 
             $this->applyRefundOutcome($row, $notice->status, $notice->refundReference, null);
             $this->refunds->save($row);
             $this->recalculateRefunds($payment, null, 'webhook');
 
-            return 'applied: ' . $notice->type . ' ' . $notice->status->value;
+            return 'applied: '.$notice->type.' '.$notice->status->value;
         }
 
         // A successful refund is booked only as far as the gateway's own refunded
@@ -1014,7 +1016,7 @@ final class PaymentService
 
         $this->recalculateRefunds($payment, $gatewayTotal ?? $notice->gatewayTotalRefunded, 'webhook');
 
-        return 'applied: ' . $notice->type . ' ' . $notice->status->value;
+        return 'applied: '.$notice->type.' '.$notice->status->value;
     }
 
     /**
@@ -1107,7 +1109,7 @@ final class PaymentService
             foreach ($this->refunds->pendingFor($reference) as $pending) {
                 $created = $pending->created_at;
                 if (($pending->gateway_refund_reference === null || $pending->gateway_refund_reference === '')
-                    && $created !== null && $created->getTimestamp() < $threshold && !$pending->outcome_unknown) {
+                    && $created !== null && $created->getTimestamp() < $threshold && ! $pending->outcome_unknown) {
                     // Not at the gateway at all. Never failed automatically: an
                     // operator decides (payments:resolve-refund).
                     $pending->outcome_unknown = true;
@@ -1129,7 +1131,7 @@ final class PaymentService
     /** Pulls the gateway refund list (when supported) into the ledger. */
     private function refreshRefundsFromGateway(PaymentGatewayInterface $gateway, string $reference, string $source): void
     {
-        if (!$gateway instanceof RefundListingInterface) {
+        if (! $gateway instanceof RefundListingInterface) {
             return;
         }
 
@@ -1177,7 +1179,7 @@ final class PaymentService
             );
         }
 
-        if ($result->paymentReference !== '' && !$this->belongsToPayment($payment, $result->paymentReference)) {
+        if ($result->paymentReference !== '' && ! $this->belongsToPayment($payment, $result->paymentReference)) {
             $this->logger->warning('payment.webhook_reference_mismatch', [
                 'payment_reference' => $payment->reference,
                 'gateway' => $gatewayKey,
@@ -1211,7 +1213,7 @@ final class PaymentService
             throw new WebhookVerificationException('Webhook event has no identifier.');
         }
 
-        return strlen($eventId) > 191 ? 'sha256:' . hash('sha256', $eventId) : $eventId;
+        return strlen($eventId) > 191 ? 'sha256:'.hash('sha256', $eventId) : $eventId;
     }
 
     // ---------------------------------------------------------------------
@@ -1224,7 +1226,7 @@ final class PaymentService
         $gatewayKey = $payment->gatewayKey();
         $gateway = $this->gateways->gateway($gatewayKey);
 
-        if (!$gateway instanceof PaymentRefundInterface) {
+        if (! $gateway instanceof PaymentRefundInterface) {
             throw new UnsupportedPaymentOperationException($gatewayKey, 'refund');
         }
 
@@ -1261,7 +1263,7 @@ final class PaymentService
                     }
                 }
 
-                if (!$locked->status->isRefundable()) {
+                if (! $locked->status->isRefundable()) {
                     throw new InvalidRefundException('Payment is not in a refundable state.');
                 }
 
@@ -1289,7 +1291,7 @@ final class PaymentService
                 if ($amount->minorAmount > $availableMinor) {
                     throw new InvalidRefundException('Refund amount exceeds the remaining refundable amount.');
                 }
-                if ($amount->minorAmount < $total->minorAmount && !$gateway->capabilities()->supportsPartialRefunds()) {
+                if ($amount->minorAmount < $total->minorAmount && ! $gateway->capabilities()->supportsPartialRefunds()) {
                     throw new UnsupportedPaymentOperationException($gatewayKey, 'partial_refund');
                 }
 
@@ -1372,7 +1374,7 @@ final class PaymentService
             $status = $result->status === RefundStatus::PROCESSING ? RefundStatus::PENDING : $result->status;
             $this->applyRefundOutcome($row, $status, $result->refundReference, $status === RefundStatus::SUCCEEDED ? $applied : null);
             if ($status === RefundStatus::FAILED) {
-                $row->last_error = mb_substr('Gateway status: ' . ($result->gatewayStatus ?? 'unknown'), 0, 500);
+                $row->last_error = mb_substr('Gateway status: '.($result->gatewayStatus ?? 'unknown'), 0, 500);
             }
             $this->refunds->save($row);
 
@@ -1427,7 +1429,7 @@ final class PaymentService
             }
 
             $this->applyRefundOutcome($row, $status, $gatewayReference, $status === RefundStatus::SUCCEEDED ? $row->amountMoney() : null);
-            $row->last_error = 'Resolved manually as ' . $status->value . '.';
+            $row->last_error = 'Resolved manually as '.$status->value.'.';
             $this->refunds->save($row);
 
             $this->recalculateRefunds($payment, null, 'manual');
@@ -1445,7 +1447,7 @@ final class PaymentService
 
     private function newRefund(Payment $payment, Money $amount, string $source, string $type): PaymentRefund
     {
-        $refund = new PaymentRefund();
+        $refund = new PaymentRefund;
         $refund->uuid = Uuid::v4();
         $refund->payment_reference = (string) $payment->reference;
         $refund->gateway = $payment->gatewayKey();
@@ -1483,7 +1485,7 @@ final class PaymentService
         }
 
         if ($status === RefundStatus::SUCCEEDED || $status === RefundStatus::FAILED) {
-            $refund->completed_at = new DateTimeImmutable();
+            $refund->completed_at = new DateTimeImmutable;
             $refund->outcome_unknown = false;
         }
     }
@@ -1584,7 +1586,7 @@ final class PaymentService
         $this->applyStatus($payment, $fully ? PaymentStatus::REFUNDED : PaymentStatus::PARTIALLY_REFUNDED, null, null, $source);
 
         if ($fully && $payment->refunded_at === null) {
-            $payment->refunded_at = new DateTimeImmutable();
+            $payment->refunded_at = new DateTimeImmutable;
         }
 
         if ($refundedMinor !== $previous) {
@@ -1719,7 +1721,7 @@ final class PaymentService
             $payment->gateway_status = mb_substr($gatewayStatus, 0, 255);
         }
 
-        if (!$decision->changesState()) {
+        if (! $decision->changesState()) {
             return false;
         }
 
@@ -1728,14 +1730,14 @@ final class PaymentService
         $gateway = $payment->gatewayKey();
 
         if ($to === PaymentStatus::SUCCEEDED && $payment->paid_at === null) {
-            $payment->paid_at = $occurredAt ?? new DateTimeImmutable();
+            $payment->paid_at = $occurredAt ?? new DateTimeImmutable;
         }
 
         if ($to === PaymentStatus::SUCCEEDED && $payment->fulfilled_at === null) {
             // PaymentSucceeded is raised now; paid_at may be much older (a late
             // notification), so give its listeners time before any redispatch.
-            $payment->next_fulfilment_dispatch_at = (new DateTimeImmutable())
-                ->modify('+' . (int) $this->options['fulfilment_base_delay_seconds'] . ' seconds');
+            $payment->next_fulfilment_dispatch_at = (new DateTimeImmutable)
+                ->modify('+'.(int) $this->options['fulfilment_base_delay_seconds'].' seconds');
         }
 
         if ($decision === TransitionDecision::LATE_PAYMENT) {
@@ -1780,11 +1782,11 @@ final class PaymentService
     private function assertGatewayResultMatches(Payment $payment, PaymentStatusResult $result): void
     {
         $reported = $result->merchantOrderReference;
-        if ($reported !== null && $reported !== '' && !$this->belongsToPayment($payment, $reported)) {
+        if ($reported !== null && $reported !== '' && ! $this->belongsToPayment($payment, $reported)) {
             throw new GatewayReferenceMismatchException($payment->merchantOrderReference(), $reported);
         }
 
-        if ($result->amount !== null && !$payment->amountMoney()->isEquivalentTo($result->amount)) {
+        if ($result->amount !== null && ! $payment->amountMoney()->isEquivalentTo($result->amount)) {
             throw new PaymentAmountMismatchException($payment->amountMoney(), $result->amount);
         }
     }
@@ -1825,7 +1827,8 @@ final class PaymentService
      * payment gets PaymentSucceeded again from payments:redispatch-unfulfilled.
      *
      * @template T
-     * @param Closure(): T $callback
+     *
+     * @param  Closure(): T  $callback
      * @return T
      */
     private function atomic(Closure $callback): mixed
@@ -1866,6 +1869,6 @@ final class PaymentService
 
     private function describeError(Throwable $error): string
     {
-        return mb_substr((new ReflectionClass($error))->getShortName() . ': ' . $error->getMessage(), 0, 500);
+        return mb_substr((new ReflectionClass($error))->getShortName().': '.$error->getMessage(), 0, 500);
     }
 }

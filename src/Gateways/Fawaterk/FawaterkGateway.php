@@ -8,18 +8,17 @@ use DateTimeImmutable;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use InvalidArgumentException;
 use Mo7mud\LaravelPaymentGateway\Contracts\DeclaresReservedMetadataKeys;
-use Mo7mud\LaravelPaymentGateway\Contracts\RefundListingInterface;
-use Mo7mud\LaravelPaymentGateway\DTOs\GatewayRefundList;
-use Mo7mud\LaravelPaymentGateway\DTOs\GatewayRefundRecord;
-use Mo7mud\LaravelPaymentGateway\Support\DecimalNumber;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentCreatorInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentGatewayInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReconciliationInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentRefundInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentReturnHandlerInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\PaymentStatusProviderInterface;
+use Mo7mud\LaravelPaymentGateway\Contracts\RefundListingInterface;
 use Mo7mud\LaravelPaymentGateway\Contracts\WebhookHandlerInterface;
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
+use Mo7mud\LaravelPaymentGateway\DTOs\GatewayRefundList;
+use Mo7mud\LaravelPaymentGateway\DTOs\GatewayRefundRecord;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentCreationResult;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentReturnRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\PaymentReturnResult;
@@ -30,25 +29,16 @@ use Mo7mud\LaravelPaymentGateway\DTOs\RefundResult;
 use Mo7mud\LaravelPaymentGateway\DTOs\WebhookRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\WebhookResult;
 use Mo7mud\LaravelPaymentGateway\Enums\GatewayName;
-use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
 use Mo7mud\LaravelPaymentGateway\Exceptions\InvalidRefundException;
 use Mo7mud\LaravelPaymentGateway\Exceptions\WebhookVerificationException;
 use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurationException;
+use Mo7mud\LaravelPaymentGateway\Support\DecimalNumber;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\GatewayCapabilities;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 
-final class FawaterkGateway implements
-    PaymentGatewayInterface,
-    PaymentCreatorInterface,
-    PaymentStatusProviderInterface,
-    PaymentReturnHandlerInterface,
-    WebhookHandlerInterface,
-    PaymentRefundInterface,
-    PaymentReconciliationInterface,
-    DeclaresReservedMetadataKeys,
-    RefundListingInterface
+final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCreatorInterface, PaymentGatewayInterface, PaymentReconciliationInterface, PaymentRefundInterface, PaymentReturnHandlerInterface, PaymentStatusProviderInterface, RefundListingInterface, WebhookHandlerInterface
 {
     /** Default mapping of Fawaterk refund request statuses (case-insensitive). */
     private const REFUND_STATUS_MAP = [
@@ -74,8 +64,7 @@ final class FawaterkGateway implements
         private readonly FawaterkSignatureVerifier $signatures,
         private readonly array $config = [],
         private readonly ?CacheRepository $cache = null,
-    ) {
-    }
+    ) {}
 
     public function reservedMetadataKeys(): array
     {
@@ -189,7 +178,7 @@ final class FawaterkGateway implements
         $transactionId = $request->metadata['gateway_transaction_id']
             ?? $request->metadata['fawaterk_transaction_id']
             ?? null;
-        if (!is_numeric($transactionId) || (int) $transactionId <= 0) {
+        if (! is_numeric($transactionId) || (int) $transactionId <= 0) {
             throw new FawaterkConfigurationException('Fawaterk transaction_id is required to create a refund.');
         }
 
@@ -214,7 +203,7 @@ final class FawaterkGateway implements
 
         $comment = trim((string) ($request->metadata['fawaterk_comment'] ?? ''));
         if ($unmatchedReason !== null) {
-            $comment = trim($unmatchedReason . ($comment !== '' ? ' - ' . $comment : ''));
+            $comment = trim($unmatchedReason.($comment !== '' ? ' - '.$comment : ''));
         }
         if ($comment !== '') {
             $payload['comment'] = mb_substr($comment, 0, 500);
@@ -258,7 +247,7 @@ final class FawaterkGateway implements
         $cartItems = $this->cartItems($request);
         $redirectionUrls = $this->redirectionUrls($request);
 
-        if (isset($redirectionUrls['webhookUrl']) && !str_contains((string) (parse_url((string) $redirectionUrls['webhookUrl'], PHP_URL_PATH) ?? ''), '_json')) {
+        if (isset($redirectionUrls['webhookUrl']) && ! str_contains((string) (parse_url((string) $redirectionUrls['webhookUrl'], PHP_URL_PATH) ?? ''), '_json')) {
             throw new FawaterkConfigurationException('Fawaterk webhookUrl must contain `_json` so the paid/pending webhook is delivered as application/json.');
         }
 
@@ -290,15 +279,15 @@ final class FawaterkGateway implements
         ];
 
         foreach ($optional as $apiField => $metadataKey) {
-            if (!array_key_exists($metadataKey, $request->metadata) || $request->metadata[$metadataKey] === null || $request->metadata[$metadataKey] === '') {
+            if (! array_key_exists($metadataKey, $request->metadata) || $request->metadata[$metadataKey] === null || $request->metadata[$metadataKey] === '') {
                 continue;
             }
 
             $value = $request->metadata[$metadataKey];
             $payload[$apiField] = match ($apiField) {
-                'payment_method_id' => !is_numeric($value) ? throw new InvalidArgumentException('Fawaterk payment_method_id must be numeric.') : (int) $value,
+                'payment_method_id' => ! is_numeric($value) ? throw new InvalidArgumentException('Fawaterk payment_method_id must be numeric.') : (int) $value,
                 'save_customer', 'sendEmail', 'sendSMS', 'redirectOption' => filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? throw new InvalidArgumentException("Fawaterk {$apiField} must be boolean."),
-                'authAndCapture' => !is_numeric($value) ? throw new InvalidArgumentException('Fawaterk authAndCapture must be numeric.') : (int) $value,
+                'authAndCapture' => ! is_numeric($value) ? throw new InvalidArgumentException('Fawaterk authAndCapture must be numeric.') : (int) $value,
                 default => $value,
             };
         }
@@ -349,7 +338,7 @@ final class FawaterkGateway implements
     private function cartItems(CreatePaymentRequest $request): array
     {
         $items = $request->metadata['cart_items'] ?? null;
-        if (!is_array($items) || $items === []) {
+        if (! is_array($items) || $items === []) {
             return [[
                 'name' => (string) ($request->metadata['cart_item_name'] ?? 'Payment'),
                 'price' => DecimalNumber::fromMoney($request->amount),
@@ -359,14 +348,14 @@ final class FawaterkGateway implements
 
         $mapped = [];
         foreach ($items as $item) {
-            if (!is_array($item)) {
+            if (! is_array($item)) {
                 continue;
             }
 
             $name = trim((string) ($item['name'] ?? ''));
             $price = $item['price'] ?? null;
             $quantity = filter_var($item['quantity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            if ($name === '' || !(is_string($price) || is_int($price) || is_float($price)) || $quantity === false) {
+            if ($name === '' || ! (is_string($price) || is_int($price) || is_float($price)) || $quantity === false) {
                 throw new InvalidArgumentException('Each Fawaterk cart item requires name, price, and an integer quantity >= 1.');
             }
 
@@ -442,7 +431,7 @@ final class FawaterkGateway implements
 
         $records = [];
         foreach ($items as $item) {
-            if (!$this->refundBelongsTo($item, $transactionId)) {
+            if (! $this->refundBelongsTo($item, $transactionId)) {
                 continue;
             }
 
@@ -609,7 +598,7 @@ final class FawaterkGateway implements
             return $fetch();
         }
 
-        $key = 'mo7mud.payment-gateway.fawaterk.refund-reasons.' . ($language ?? 'default');
+        $key = 'mo7mud.payment-gateway.fawaterk.refund-reasons.'.($language ?? 'default');
         $reasons = $this->cache->get($key);
         if (is_array($reasons) && $reasons !== []) {
             return array_values(array_map('strval', $reasons));
@@ -633,7 +622,7 @@ final class FawaterkGateway implements
             return strtolower((string) ($payload['status'] ?? '')) === 'paid' ? 'paid' : 'pending';
         }
 
-        if (isset($payload['transactionId'], $payload['amount'], $payload['currency']) && !isset($payload['transaction_key'])) {
+        if (isset($payload['transactionId'], $payload['amount'], $payload['currency']) && ! isset($payload['transaction_key'])) {
             return 'refund';
         }
 

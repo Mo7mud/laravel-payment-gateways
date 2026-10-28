@@ -22,12 +22,11 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         private readonly int $timeout = 15,
         private readonly int $connectTimeout = 5,
         private readonly int $readRetries = 2,
-    ) {
-    }
+    ) {}
 
     public function createPaymentSession(array $payload): array
     {
-        return $this->request('post', rtrim($this->apiBaseUrl, '/') . '/v3/payment/sessions', [
+        return $this->request('post', rtrim($this->apiBaseUrl, '/').'/v3/payment/sessions', [
             'Authorization' => $this->secretKey,
             'api-key' => $this->paymentApiKey,
             'Content-Type' => 'application/json',
@@ -37,7 +36,7 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
 
     public function getPaymentSession(string $sessionId): array
     {
-        return $this->request('get', rtrim($this->apiBaseUrl, '/') . '/v3/payment/sessions/' . rawurlencode($sessionId) . '/payment', [
+        return $this->request('get', rtrim($this->apiBaseUrl, '/').'/v3/payment/sessions/'.rawurlencode($sessionId).'/payment', [
             'Authorization' => $this->secretKey,
             'Accept' => 'application/json',
         ]);
@@ -46,7 +45,7 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
     public function abandonPaymentSession(string $sessionId): array
     {
         // Not retried automatically (only reads are).
-        return $this->request('patch', rtrim($this->apiBaseUrl, '/') . '/v3/payment/sessions/' . rawurlencode($sessionId), [
+        return $this->request('patch', rtrim($this->apiBaseUrl, '/').'/v3/payment/sessions/'.rawurlencode($sessionId), [
             'Authorization' => $this->secretKey,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -77,7 +76,7 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         }
 
         // Not retried automatically: a refund is not idempotent at Kashier.
-        return $this->request('put', rtrim($this->fepBaseUrl, '/') . '/v3/orders/' . rawurlencode($orderId), [
+        return $this->request('put', rtrim($this->fepBaseUrl, '/').'/v3/orders/'.rawurlencode($orderId), [
             'Authorization' => $this->secretKey,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -110,7 +109,7 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
             $query['endDate'] = $endDate;
         }
 
-        $url = rtrim($this->apiBaseUrl, '/') . '/v3/payment/orders?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        $url = rtrim($this->apiBaseUrl, '/').'/v3/payment/orders?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
 
         return $this->request('get', $url, [
             'Authorization' => $this->secretKey,
@@ -150,16 +149,16 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
                 'patch' => $body === null || $body === []
                     ? $request->withBody('{}', 'application/json')->patch($url)
                     : $request->patch($url, $body),
-                default => throw new KashierApiException('Unsupported Kashier HTTP method [' . $method . '].'),
+                default => throw new KashierApiException('Unsupported Kashier HTTP method ['.$method.'].'),
             };
         } catch (KashierApiException $e) {
             throw $e;
         } catch (Throwable $e) {
-            throw new KashierApiException('Kashier API request failed: ' . $e::class, 0);
+            throw new KashierApiException('Kashier API request failed: '.$e::class, 0);
         }
 
         $json = $response->json();
-        if (!is_array($json)) {
+        if (! is_array($json)) {
             $json = ['raw' => mb_substr((string) $response->body(), 0, 2000)];
         }
 

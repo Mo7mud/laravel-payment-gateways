@@ -45,15 +45,15 @@ return new class extends Migration
                     'Cannot make %s.%s unique: duplicate values exist (%s). Resolve them and run the migration again.',
                     $name,
                     $column,
-                    $duplicates->map(static fn (object $row): string => $row->gateway . ':' . $row->{$column})->implode(', '),
+                    $duplicates->map(static fn (object $row): string => $row->gateway.':'.$row->{$column})->implode(', '),
                 ));
             }
         }
 
         Schema::table($name, function (Blueprint $table) use ($name): void {
             foreach (self::COLUMNS as $column => [$index, $unique]) {
-                $table->dropIndex($name . $index);
-                $table->unique(['gateway', $column], $name . $unique);
+                $table->dropIndex($name.$index);
+                $table->unique(['gateway', $column], $name.$unique);
             }
         });
     }
@@ -64,8 +64,8 @@ return new class extends Migration
 
         Schema::table($name, function (Blueprint $table) use ($name): void {
             foreach (self::COLUMNS as $column => [$index, $unique]) {
-                $table->dropUnique($name . $unique);
-                $table->index(['gateway', $column], $name . $index);
+                $table->dropUnique($name.$unique);
+                $table->index(['gateway', $column], $name.$index);
             }
         });
     }

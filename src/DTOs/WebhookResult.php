@@ -12,12 +12,12 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 final readonly class WebhookResult
 {
     /**
-     * @param PaymentStatus|null $status Claimed payment status (PAYMENT kind), or the
-     *        resulting stored status in results returned by PaymentService.
-     * @param bool $requiresVerification When true, PaymentService confirms the state
-     *        with the gateway API before changing anything.
-     * @param bool $referenceTrusted Whether $paymentReference is covered by the
-     *        gateway signature and may be used to locate the payment.
+     * @param  PaymentStatus|null  $status  Claimed payment status (PAYMENT kind), or the
+     *                                      resulting stored status in results returned by PaymentService.
+     * @param  bool  $requiresVerification  When true, PaymentService confirms the state
+     *                                      with the gateway API before changing anything.
+     * @param  bool  $referenceTrusted  Whether $paymentReference is covered by the
+     *                                  gateway signature and may be used to locate the payment.
      */
     public function __construct(
         public string $eventId,
@@ -38,8 +38,7 @@ final readonly class WebhookResult
         public bool $referenceTrusted = true,
         public ?string $ignoreReason = null,
         public ?string $processingNote = null,
-    ) {
-    }
+    ) {}
 
     public function asDuplicate(): self
     {

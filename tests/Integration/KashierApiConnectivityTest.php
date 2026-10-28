@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mo7mud\LaravelPaymentGateway\Tests\Integration;
 
 use Illuminate\Http\Client\Factory;
-use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierClient;
 use PHPUnit\Framework\TestCase;
 
 final class KashierApiConnectivityTest extends TestCase
@@ -18,7 +17,7 @@ final class KashierApiConnectivityTest extends TestCase
         }
 
         $baseUrl = rtrim(getenv('KASHIER_TEST_API_BASE_URL') ?: 'https://test-api.kashier.io', '/');
-        $client = new Factory();
+        $client = new Factory;
 
         // The supplied Kashier documentation explicitly documents GET /v2/account
         // with the Secret API Key in the Authorization header. This is a safer
@@ -29,7 +28,7 @@ final class KashierApiConnectivityTest extends TestCase
                 'Authorization' => $secret,
                 'Accept' => 'application/json',
             ])
-            ->get($baseUrl . '/v2/account');
+            ->get($baseUrl.'/v2/account');
 
         $this->assertSame(200, $response->status(), sprintf(
             'Kashier authentication failed with HTTP %d. Response: %s',

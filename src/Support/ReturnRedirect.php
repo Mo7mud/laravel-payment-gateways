@@ -18,7 +18,7 @@ final class ReturnRedirect
     {
         $replacements = [];
         foreach (['reference', 'status', 'gateway', 'error'] as $name) {
-            $replacements['{' . $name . '}'] = rawurlencode((string) ($values[$name] ?? ''));
+            $replacements['{'.$name.'}'] = rawurlencode((string) ($values[$name] ?? ''));
         }
 
         return strtr($template, $replacements);
@@ -28,7 +28,7 @@ final class ReturnRedirect
      * http(s) only, no credentials or backslashes/whitespace, and the host must be listed exactly
      * (case-insensitive). An empty list allows nothing.
      *
-     * @param array<int, mixed> $allowedHosts
+     * @param  array<int, mixed>  $allowedHosts
      */
     public static function isAllowed(string $url, array $allowedHosts): bool
     {
@@ -38,11 +38,11 @@ final class ReturnRedirect
         }
 
         $parts = parse_url($url);
-        if ($parts === false || !isset($parts['scheme'], $parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
             return false;
         }
 
-        if (!in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
+        if (! in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
             return false;
         }
 

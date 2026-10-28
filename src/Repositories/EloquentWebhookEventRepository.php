@@ -87,7 +87,7 @@ final class EloquentWebhookEventRepository implements WebhookEventRepositoryInte
             ->where('gateway', $gateway)
             ->where('event_id', $eventId);
 
-        if (!$status->isFinal()) {
+        if (! $status->isFinal()) {
             // A failure or retry never overwrites an event another delivery
             // already processed (conditional update, safe under concurrency).
             $query->whereNotIn('status', [WebhookEventStatus::PROCESSED->value, WebhookEventStatus::IGNORED->value]);

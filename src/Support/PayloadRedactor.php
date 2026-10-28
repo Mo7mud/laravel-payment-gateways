@@ -36,6 +36,7 @@ final class PayloadRedactor
         foreach ($payload as $key => $value) {
             if (is_string($key) && isset($this->keys[strtolower($key)])) {
                 $clean[$key] = '[redacted]';
+
                 continue;
             }
 

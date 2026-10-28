@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+require dirname(__DIR__).'/vendor/autoload.php';
 
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Container\Container;
@@ -18,11 +18,11 @@ use Illuminate\Support\Facades\Facade;
  * is wiped first. A second connection ("concurrent") is registered for
  * locking tests.
  */
-$container = new Container();
+$container = new Container;
 Container::setInstance($container);
 
 $container->instance('config', new ConfigRepository([
-    'payment-gateway' => require dirname(__DIR__) . '/config/payment-gateway.php',
+    'payment-gateway' => require dirname(__DIR__).'/config/payment-gateway.php',
 ]));
 
 $driver = getenv('DB_TEST_DRIVER') ?: 'sqlite';
@@ -56,7 +56,7 @@ if ($driver !== 'sqlite') {
     $capsule->getConnection()->getSchemaBuilder()->dropAllTables();
 }
 
-$migrations = glob(dirname(__DIR__) . '/database/migrations/*.php') ?: [];
+$migrations = glob(dirname(__DIR__).'/database/migrations/*.php') ?: [];
 sort($migrations);
 foreach ($migrations as $file) {
     (require $file)->up();

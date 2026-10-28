@@ -15,8 +15,7 @@ final readonly class GatewayCapabilities
         public bool $partialRefunds = false,
         public bool $returnHandling = false,
         public bool $cancellation = false,
-    ) {
-    }
+    ) {}
 
     public function supportsHostedCheckout(): bool
     {

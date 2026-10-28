@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Gateways\Kashier;
 
 use Mo7mud\LaravelPaymentGateway\DTOs\RefundPaymentRequest;
-use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\Enums\RefundStatus;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierClientInterface;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
@@ -19,14 +18,28 @@ final class KashierRefundTest extends TestCase
 {
     public function test_refund_uses_order_id_and_amount_without_a_transaction_id(): void
     {
-        $client = new class implements KashierClientInterface {
+        $client = new class implements KashierClientInterface
+        {
             public ?string $orderId = null;
+
             public ?string $amount = null;
+
             public ?string $reason = null;
 
-            public function createPaymentSession(array $payload): array { return []; }
-            public function getPaymentSession(string $sessionId): array { return []; }
-            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array { return []; }
+            public function createPaymentSession(array $payload): array
+            {
+                return [];
+            }
+
+            public function getPaymentSession(string $sessionId): array
+            {
+                return [];
+            }
+
+            public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
+            {
+                return [];
+            }
 
             public function refund(string $orderId, ?string $amount, ?string $reason): array
             {
@@ -51,7 +64,7 @@ final class KashierRefundTest extends TestCase
         $gateway = new KashierGateway(
             $client,
             new KashierSignatureVerifier('secret'),
-            new KashierStatusMapper(),
+            new KashierStatusMapper,
             [
                 'merchant_id' => 'MID-TEST',
                 'secret_key' => 'secret',

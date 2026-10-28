@@ -32,7 +32,7 @@ final class ReturnController extends Controller
         string $gateway,
     ): RedirectResponse|JsonResponse {
         $gateway = strtolower($gateway);
-        if (!$gateways->has($gateway)) {
+        if (! $gateways->has($gateway)) {
             abort(404);
         }
 

@@ -9,8 +9,8 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 final readonly class CreatePaymentRequest
 {
     /**
-     * @param string|null $gatewayOrderReference Merchant order id sent to the gateway.
-     *        Set by PaymentService (equals the payment reference on the first attempt).
+     * @param  string|null  $gatewayOrderReference  Merchant order id sent to the gateway.
+     *                                              Set by PaymentService (equals the payment reference on the first attempt).
      */
     public function __construct(
         public string $paymentReference,
@@ -20,8 +20,7 @@ final readonly class CreatePaymentRequest
         public ?string $cancelUrl = null,
         public array $metadata = [],
         public ?string $gatewayOrderReference = null,
-    ) {
-    }
+    ) {}
 
     public function merchantOrderReference(): string
     {

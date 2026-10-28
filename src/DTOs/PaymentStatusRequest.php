@@ -18,8 +18,7 @@ final readonly class PaymentStatusRequest
         public ?string $gatewayTransactionId = null,
         public ?string $gatewayOrderReference = null,
         public ?Money $expectedAmount = null,
-    ) {
-    }
+    ) {}
 
     public function merchantOrderReference(): string
     {

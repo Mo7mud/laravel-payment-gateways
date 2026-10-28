@@ -21,12 +21,19 @@ final class FawaterkGatewayTest extends TestCase
 {
     public function test_gateway_implements_common_creator_contract_and_maps_hosted_flow(): void
     {
-        $client = new class implements FawaterkClientInterface {
+        $client = new class implements FawaterkClientInterface
+        {
             public array $payload = [];
-            public function getPaymentMethods(): array { return []; }
+
+            public function getPaymentMethods(): array
+            {
+                return [];
+            }
+
             public function createTransaction(array $payload): array
             {
                 $this->payload = $payload;
+
                 return [
                     'status' => 'success',
                     'data' => [
@@ -36,17 +43,49 @@ final class FawaterkGatewayTest extends TestCase
                     ],
                 ];
             }
-            public function getTransactionData(string $intentKey): array { return []; }
-            public function getTransactionsData(string $startDate, string $endDate, int $perPage = 15, ?string $payloadFilter = null, int $page = 1): array { return []; }
-            public function getRefundTypes(?string $lang = null): array { return []; }
-            public function getRefundReasons(?string $lang = null): array { return []; }
-            public function createRefund(array $payload): array { return []; }
-            public function deleteRefund(int $refundId): array { return []; }
-            public function listRefunds(): array { return []; }
-            public function getRefundDetails(int $refundId): array { return []; }
+
+            public function getTransactionData(string $intentKey): array
+            {
+                return [];
+            }
+
+            public function getTransactionsData(string $startDate, string $endDate, int $perPage = 15, ?string $payloadFilter = null, int $page = 1): array
+            {
+                return [];
+            }
+
+            public function getRefundTypes(?string $lang = null): array
+            {
+                return [];
+            }
+
+            public function getRefundReasons(?string $lang = null): array
+            {
+                return [];
+            }
+
+            public function createRefund(array $payload): array
+            {
+                return [];
+            }
+
+            public function deleteRefund(int $refundId): array
+            {
+                return [];
+            }
+
+            public function listRefunds(): array
+            {
+                return [];
+            }
+
+            public function getRefundDetails(int $refundId): array
+            {
+                return [];
+            }
         };
 
-        $gateway = new FawaterkGateway($client, new FawaterkMapper(), new FawaterkSignatureVerifier('secret'));
+        $gateway = new FawaterkGateway($client, new FawaterkMapper, new FawaterkSignatureVerifier('secret'));
         self::assertInstanceOf(PaymentCreatorInterface::class, $gateway);
         self::assertSame(GatewayName::FAWATERK, $gateway->name());
         self::assertTrue($gateway->capabilities()->supportsHostedCheckout());

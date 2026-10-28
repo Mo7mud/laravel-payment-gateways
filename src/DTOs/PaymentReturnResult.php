@@ -24,8 +24,7 @@ final readonly class PaymentReturnResult
         public array $rawQuery = [],
         public ?PaymentStatus $localStatus = null,
         public bool $signatureVerified = false,
-    ) {
-    }
+    ) {}
 
     public function withLocalPayment(string $paymentReference, PaymentStatus $localStatus): self
     {

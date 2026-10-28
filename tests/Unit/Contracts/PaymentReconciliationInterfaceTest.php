@@ -14,7 +14,8 @@ final class PaymentReconciliationInterfaceTest extends TestCase
 {
     public function test_reconciliation_capability_exposes_a_normalized_result(): void
     {
-        $gateway = new class implements PaymentReconciliationInterface {
+        $gateway = new class implements PaymentReconciliationInterface
+        {
             public function reconcilePayment(PaymentStatusRequest $request): PaymentStatusResult
             {
                 return new PaymentStatusResult(

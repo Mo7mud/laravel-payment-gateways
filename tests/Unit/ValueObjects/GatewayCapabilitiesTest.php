@@ -11,7 +11,7 @@ final class GatewayCapabilitiesTest extends TestCase
 {
     public function test_capabilities_default_to_unsupported(): void
     {
-        $capabilities = new GatewayCapabilities();
+        $capabilities = new GatewayCapabilities;
 
         self::assertFalse($capabilities->supportsHostedCheckout());
         self::assertFalse($capabilities->supportsStatusQuery());

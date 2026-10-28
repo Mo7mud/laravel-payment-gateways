@@ -6,12 +6,10 @@ namespace Mo7mud\LaravelPaymentGateway\Tests\Unit\Gateways\Kashier;
 
 use Mo7mud\LaravelPaymentGateway\DTOs\CreatePaymentRequest;
 use Mo7mud\LaravelPaymentGateway\DTOs\CustomerData;
-use Mo7mud\LaravelPaymentGateway\DTOs\PaymentCreationResult;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierClientInterface;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierGateway;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierStatusMapper;
-use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 use PHPUnit\Framework\TestCase;
@@ -20,11 +18,14 @@ final class KashierCustomerMappingTest extends TestCase
 {
     public function test_customer_reference_is_sent_to_kashier(): void
     {
-        $client = new class implements KashierClientInterface {
+        $client = new class implements KashierClientInterface
+        {
             public array $payload = [];
+
             public function createPaymentSession(array $payload): array
             {
                 $this->payload = $payload;
+
                 return [
                     '_id' => 'session-1',
                     'status' => 'CREATED',
@@ -33,7 +34,12 @@ final class KashierCustomerMappingTest extends TestCase
                     'paymentParams' => [],
                 ];
             }
-            public function getPaymentSession(string $sessionId): array { return []; }
+
+            public function getPaymentSession(string $sessionId): array
+            {
+                return [];
+            }
+
             public function getOrderStatus(
                 string $merchantOrderId,
                 ?string $status = null,
@@ -42,13 +48,17 @@ final class KashierCustomerMappingTest extends TestCase
             ): array {
                 throw new \LogicException('getOrderStatus() should not be called in this test.');
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
         $gateway = new KashierGateway(
             $client,
             new KashierSignatureVerifier('secret'),
-            new KashierStatusMapper(),
+            new KashierStatusMapper,
             [
                 'merchant_id' => 'MID-TEST',
                 'secret_key' => 'secret',
@@ -83,11 +93,14 @@ final class KashierCustomerMappingTest extends TestCase
 
     public function test_customer_reference_falls_back_to_id_for_backward_compatibility(): void
     {
-        $client = new class implements KashierClientInterface {
+        $client = new class implements KashierClientInterface
+        {
             public array $payload = [];
+
             public function createPaymentSession(array $payload): array
             {
                 $this->payload = $payload;
+
                 return [
                     '_id' => 'session-2',
                     'status' => 'CREATED',
@@ -96,7 +109,12 @@ final class KashierCustomerMappingTest extends TestCase
                     'paymentParams' => [],
                 ];
             }
-            public function getPaymentSession(string $sessionId): array { return []; }
+
+            public function getPaymentSession(string $sessionId): array
+            {
+                return [];
+            }
+
             public function getOrderStatus(
                 string $merchantOrderId,
                 ?string $status = null,
@@ -105,13 +123,17 @@ final class KashierCustomerMappingTest extends TestCase
             ): array {
                 throw new \LogicException('getOrderStatus() should not be called in this test.');
             }
-            public function refund(string $orderId, ?string $amount, ?string $reason): array { return []; }
+
+            public function refund(string $orderId, ?string $amount, ?string $reason): array
+            {
+                return [];
+            }
         };
 
         $gateway = new KashierGateway(
             $client,
             new KashierSignatureVerifier('secret'),
-            new KashierStatusMapper(),
+            new KashierStatusMapper,
             [
                 'merchant_id' => 'MID-TEST',
                 'secret_key' => 'secret',

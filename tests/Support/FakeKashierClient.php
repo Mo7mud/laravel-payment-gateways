@@ -12,14 +12,20 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSessionCancellationInte
 final class FakeKashierClient implements KashierClientInterface, KashierSessionCancellationInterface
 {
     public int $sessions = 0;
+
     public string $sessionStatus = 'OPENED';
+
     public bool $failCreate = false;
+
     /** @var list<string> merchant order ids sent to createPaymentSession */
     public array $createdOrders = [];
+
     /** @var list<array<string, mixed>> */
     public array $orders = [];
+
     /** @var list<string> session ids sent to abandonPaymentSession */
     public array $abandoned = [];
+
     /** Thrown by abandonPaymentSession (after recording the call), leaving the session as it is. */
     public ?KashierApiException $abandonFailure = null;
 
@@ -34,8 +40,8 @@ final class FakeKashierClient implements KashierClientInterface, KashierSessionC
         $this->sessions++;
 
         return [
-            '_id' => 'SESSION-' . $this->sessions,
-            'sessionUrl' => 'https://checkout.kashier.test/SESSION-' . $this->sessions,
+            '_id' => 'SESSION-'.$this->sessions,
+            'sessionUrl' => 'https://checkout.kashier.test/SESSION-'.$this->sessions,
             'status' => 'CREATED',
         ];
     }

@@ -17,6 +17,5 @@ final readonly class GatewayRefundRecord
         public RefundStatus $status,
         public ?string $gatewayStatus = null,
         public ?DateTimeImmutable $createdAt = null,
-    ) {
-    }
+    ) {}
 }

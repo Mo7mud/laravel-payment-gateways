@@ -11,15 +11,16 @@ use PHPUnit\Framework\TestCase;
 final class EnvironmentManagerTest extends TestCase
 {
     private string $directory;
+
     private string $path;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->directory = sys_get_temp_dir() . '/pg-env-' . bin2hex(random_bytes(6));
+        $this->directory = sys_get_temp_dir().'/pg-env-'.bin2hex(random_bytes(6));
         mkdir($this->directory);
-        $this->path = $this->directory . '/.env';
+        $this->path = $this->directory.'/.env';
         file_put_contents($this->path, "APP_KEY=base64:abc\nKASHIER_SECRET_KEY=old\n# comment\nKASHIER_MERCHANT_ID=\"MID 1\" # note\n");
         chmod($this->path, 0640);
     }
@@ -27,7 +28,7 @@ final class EnvironmentManagerTest extends TestCase
     protected function tearDown(): void
     {
         foreach (scandir($this->directory) ?: [] as $name) {
-            $file = $this->directory . '/' . $name;
+            $file = $this->directory.'/'.$name;
             if (is_file($file)) {
                 unlink($file);
             }
@@ -67,7 +68,7 @@ final class EnvironmentManagerTest extends TestCase
         foreach (["line\nbreak", "quote'd", "nul\0byte"] as $value) {
             try {
                 $manager->set(['KASHIER_SECRET_KEY' => $value]);
-                self::fail('Expected InvalidArgumentException for ' . json_encode($value));
+                self::fail('Expected InvalidArgumentException for '.json_encode($value));
             } catch (InvalidArgumentException) {
                 self::assertSame('old', $manager->get('KASHIER_SECRET_KEY'));
             }

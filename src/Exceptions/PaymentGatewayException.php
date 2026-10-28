@@ -6,6 +6,4 @@ namespace Mo7mud\LaravelPaymentGateway\Exceptions;
 
 use RuntimeException;
 
-abstract class PaymentGatewayException extends RuntimeException implements PaymentGatewayExceptionInterface
-{
-}
+abstract class PaymentGatewayException extends RuntimeException implements PaymentGatewayExceptionInterface {}

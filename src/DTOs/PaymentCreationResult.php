@@ -20,6 +20,5 @@ final readonly class PaymentCreationResult
         public ?DateTimeImmutable $expiresAt = null,
         public ?Money $amount = null,
         public array $metadata = [],
-    ) {
-    }
+    ) {}
 }

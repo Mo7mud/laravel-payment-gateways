@@ -14,6 +14,7 @@ use Mo7mud\LaravelPaymentGateway\DTOs\PaymentStatusRequest;
 use Mo7mud\LaravelPaymentGateway\Enums\GatewayName;
 use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
 use Mo7mud\LaravelPaymentGateway\Testing\MockGateway;
+use Mo7mud\LaravelPaymentGateway\ValueObjects\Currency;
 use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 use PHPUnit\Framework\TestCase;
 
@@ -24,7 +25,7 @@ final class MockGatewayTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->gateway = new MockGateway();
+        $this->gateway = new MockGateway;
     }
 
     public function test_mock_gateway_implements_the_generic_contracts(): void
@@ -41,7 +42,7 @@ final class MockGatewayTest extends TestCase
     {
         $request = new CreatePaymentRequest(
             paymentReference: 'PAY-001',
-            amount: Money::fromDecimal('100.50', \Mo7mud\LaravelPaymentGateway\ValueObjects\Currency::egp()),
+            amount: Money::fromDecimal('100.50', Currency::egp()),
         );
 
         $created = $this->gateway->createPayment($request);

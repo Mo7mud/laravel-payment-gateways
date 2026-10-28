@@ -33,7 +33,7 @@ final class HttpClientPolicyTest extends TestCase
 
     public function test_kashier_reads_are_retried_after_rate_limiting(): void
     {
-        $http = new Factory();
+        $http = new Factory;
         $http->fake(['*' => $http->sequence()
             ->push(['message' => 'Too many requests'], 429)
             ->push(['status' => 'SUCCESS', 'data' => []], 200)]);
@@ -43,12 +43,12 @@ final class HttpClientPolicyTest extends TestCase
         self::assertSame([], $response['data']);
         self::assertCount(2, $http->recorded());
         $http->assertSent(static fn (Request $request): bool => str_contains($request->url(), 'search=ORD-1')
-            && !str_contains($request->url(), 'page='));
+            && ! str_contains($request->url(), 'page='));
     }
 
     public function test_kashier_refunds_are_never_retried(): void
     {
-        $http = new Factory();
+        $http = new Factory;
         $http->fake(['*' => Factory::response(['message' => 'Upstream error'], 502)]);
 
         try {
@@ -63,7 +63,7 @@ final class HttpClientPolicyTest extends TestCase
 
     public function test_kashier_abandons_a_session_with_an_empty_json_object_once(): void
     {
-        $http = new Factory();
+        $http = new Factory;
         $http->fake(['*' => Factory::response(['message' => 'Upstream error'], 502)]);
 
         try {
@@ -80,11 +80,11 @@ final class HttpClientPolicyTest extends TestCase
 
     public function test_fawaterk_amounts_are_sent_as_exact_numbers(): void
     {
-        $http = new Factory();
+        $http = new Factory;
         $http->fake(['*' => Factory::response(['status' => 'success'], 200)]);
 
         $tokens = new FawaterkTokenManager(
-            new CacheRepository(new ArrayStore()),
+            new CacheRepository(new ArrayStore),
             'client',
             'secret',
             'test',
@@ -104,7 +104,7 @@ final class HttpClientPolicyTest extends TestCase
     {
         $calls = 0;
         $tokens = new FawaterkTokenManager(
-            new CacheRepository(new ArrayStore()),
+            new CacheRepository(new ArrayStore),
             'client',
             'secret',
             'test',
@@ -112,7 +112,7 @@ final class HttpClientPolicyTest extends TestCase
             static function () use (&$calls): array {
                 $calls++;
 
-                return ['access_token' => 'token-' . $calls, 'expires_in' => 3600];
+                return ['access_token' => 'token-'.$calls, 'expires_in' => 3600];
             },
         );
 
