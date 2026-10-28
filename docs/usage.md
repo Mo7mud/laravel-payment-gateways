@@ -68,13 +68,75 @@ php artisan vendor:publish --tag=payment-gateway-config
 | `PAYMENT_GATEWAY_RETURN_ALLOWED_HOSTS` | فاضي | الـ hosts المسموحة لـ `return_redirect_url` لكل دفع، ومفصولة بـ `,` |
 | `PAYMENT_GATEWAY_RETURN_SYNC_STATUS` | `true` | بيسأل البوابة عن الحالة لما العميل يرجع والدفع لسه مفتوح |
 | `PAYMENT_GATEWAY_LOG_CHANNEL` | القناة الافتراضية | الأفضل قناة `payments` لوحدها |
-| `PAYMENT_GATEWAY_ADMIN_ENABLED` | `false` | صفحة إعدادات بتكتب في `.env`، ولازمها Gate ability |
+| `PAYMENT_GATEWAY_ADMIN_ENABLED` | `false` | صفحة إعدادات بتكتب في `.env`، ولازمها Gate ability (تحت: صفحة الإعدادات) |
 
 ### إعدادات من قاعدة البيانات بدل `.env`
 لو التطبيق بيخزن المفاتيح في DB، حطها في `config()` من `boot()` في provider بتاعك **قبل** ما أي حاجة من الحزمة تتعملها resolve (الـ gateways بتتبني lazy):
 ```php
 config(['payment-gateway.kashier.secret_key' => decrypt($row->value)]);
 ```
+
+### صفحة الإعدادات (`GatewaySettingsManager`)
+الحزمة فيها صفحة Blade جاهزة، وفيها كمان خدمة `Admin\GatewaySettingsManager` اللي فيها كل المنطق، علشان أي لوحة (Blade، أو Filament، أو Livewire، أو API) تبني الفورم بتاعها من غير ما تكرره.
+
+**التفعيل:**
+- `PAYMENT_GATEWAY_ADMIN_ENABLED=true` بيفعّل الصفحة الجاهزة (`{admin.route_prefix}`، والافتراضي `payment-gateway/settings`). والخدمة نفسها شغالة حتى لو الصفحة مقفولة.
+- `PAYMENT_GATEWAY_ADMIN_PERMISSION=<ability>`: اسم Gate ability. ولو فاضي، الإعدادات مقفولة على الكل (403).
+- الحفظ بيكتب في `.env`، فلازم يكون writable من الـ web user. وأي مفتاح فيه `BASE_URL` مقفول ومبيتحفظش.
+
+**الدوال:**
+| الدالة | بترجّع |
+|---|---|
+| `canAccess(?$user)` / `authorize(?$user)` | `bool` / بترمي 403 |
+| `gateways()` | لكل بوابة: `display_name`، و`id`، و`enabled`، و`package_enabled`، و`mode` (فيه `current`)، و`credentials['test'\|'live']`، و`settings`، و`webhook_url`، و`return_url` |
+| `fields()` | كل الحقول بمفتاح الـ env: `label`، و`type` (`text`/`secret`/`url`/`number`/`boolean`/`select`)، و`options`، و`min`/`max`، و`rules`، و`value` |
+| `values()` | القيم الحالية. والـ secret المتخزن بيرجع `SECRET_PLACEHOLDER` ومبيرجعش قيمته أبداً |
+| `packages()` | مفاتيح تشغيل الحزم والبوابات (البوابة بـ `id` الصف) |
+| `rules()` | قواعد الـ validation لنفس شكل الـ input |
+| `save($input, $context)` | `SettingsSaveResult` (`environmentKeys`، و`warnings`، و`firstWarning()`)، أو `ValidationException` (الأخطاء بـ `env.<KEY>`) |
+
+**قواعد الحفظ:**
+- القيمة الفاضية أو `SECRET_PLACEHOLDER` مبتمسحش القيمة المتخزنة.
+- تغيير الوضع (`<GW>_ENVIRONMENT`) بيسيب مفاتيح الوضعين متخزنة، والمفاتيح القديمة (من غير `TEST`/`LIVE`) بتبقى نسخة من الوضع الشغال.
+- بعد الحفظ بيتعمل `config:clear` لو الـ config متكيّش، و`queue:restart`، وأي حاجة محتاجة تدخّل منك بترجع في `warnings`.
+
+**الترجمة:** الـ labels والخيارات والـ `display_name` بترجع مترجمة بلغة الطلب (ar/en جوه الحزمة). والقيم في `admin.packages` في الـ config هي مفاتيح `payment-gateway::admin.*`، ولو كتبت نص عادي بيتعرض زي ما هو. ولتعديل النصوص:
+```bash
+php artisan vendor:publish --tag=payment-gateway-translations
+```
+
+**مثال من أي لوحة (controller عادي):**
+```php
+use Illuminate\Http\Request;
+use Mo7mud\LaravelPaymentGateway\Admin\GatewaySettingsManager;
+
+final class PaymentSettingsController
+{
+    public function edit(GatewaySettingsManager $settings)
+    {
+        $settings->authorize();
+
+        // كل بوابة tab: mode فوق، وبعده credentials['test'] و['live']، وبعده settings
+        return view('admin.payment-settings', ['gateways' => $settings->gateways()]);
+    }
+
+    public function update(Request $request, GatewaySettingsManager $settings)
+    {
+        $settings->authorize();
+
+        // input: env[KEY]، وgateways[id] => bool، وpackages[package] => bool
+        $result = $settings->save($request->only('env', 'gateways', 'packages'), [
+            'user_id' => $request->user()?->getAuthIdentifier(),
+            'ip' => $request->ip(),
+        ]);
+
+        return back()
+            ->with('success', __('payment-gateway::admin.messages.saved'))
+            ->with('warning', $result->firstWarning());
+    }
+}
+```
+- **في Filament أو Livewire:** حوّل كل field لـ input حسب `type`، واسمه `env.<key>`. والـ `secret` يبقى password فاضي، والـ `select` من `options`. وبعدين مرّر الـ state لـ `save()`، والـ `ValidationException` بتتعرض على الحقول بنفس الأسماء.
 
 ## 4. إنشاء دفع
 ```php
