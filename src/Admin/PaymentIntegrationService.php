@@ -22,8 +22,7 @@ final class PaymentIntegrationService implements GatewayAvailabilityInterface
     public function __construct(
         private readonly ?CacheRepository $cache = null,
         private readonly int $cacheSeconds = 60,
-    ) {
-    }
+    ) {}
 
     public function syncDefinitions(): void
     {
@@ -47,6 +46,7 @@ final class PaymentIntegrationService implements GatewayAvailabilityInterface
         $this->flushCache();
     }
 
+    /** @return Collection<int, PaymentIntegrationPackage> */
     public function packages(): Collection
     {
         $this->syncDefinitions();
@@ -87,8 +87,8 @@ final class PaymentIntegrationService implements GatewayAvailabilityInterface
     }
 
     /**
-     * @param array<string, bool> $packageStates keyed by package name
-     * @param array<int, bool> $gatewayStates keyed by gateway row id
+     * @param  array<string, bool>  $packageStates  keyed by package name
+     * @param  array<int, bool>  $gatewayStates  keyed by gateway row id
      */
     public function update(array $packageStates, array $gatewayStates): void
     {

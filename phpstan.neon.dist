@@ -1,5 +1,7 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    # Errors that existed before phpstan was run regularly; shrink it, never grow it.
+    - phpstan-baseline.neon
 
 parameters:
     level: 6

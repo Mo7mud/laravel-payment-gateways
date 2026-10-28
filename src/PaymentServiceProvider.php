@@ -10,6 +10,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Mo7mud\LaravelPaymentGateway\Admin\EnvironmentManager;
+use Mo7mud\LaravelPaymentGateway\Admin\GatewaySettingsManager;
 use Mo7mud\LaravelPaymentGateway\Admin\PaymentIntegrationService;
 use Mo7mud\LaravelPaymentGateway\Console\PaymentReconciliationCommand;
 use Mo7mud\LaravelPaymentGateway\Console\PruneWebhookEventsCommand;
@@ -47,7 +48,7 @@ final class PaymentServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/payment-gateway.php', 'payment-gateway');
+        $this->mergeConfigFrom(__DIR__.'/../config/payment-gateway.php', 'payment-gateway');
 
         $this->app->singleton(PaymentRepositoryInterface::class, EloquentPaymentRepository::class);
         $this->app->singleton(WebhookEventRepositoryInterface::class, EloquentWebhookEventRepository::class);
@@ -61,9 +62,13 @@ final class PaymentServiceProvider extends ServiceProvider
         $this->registerKashier();
         $this->registerFawaterk();
 
-        $this->app->singleton(EnvironmentManager::class, static fn (): EnvironmentManager => new EnvironmentManager());
+        $this->app->singleton(EnvironmentManager::class, static fn (): EnvironmentManager => new EnvironmentManager);
         $this->app->singleton(PaymentIntegrationService::class, static fn (Application $app): PaymentIntegrationService => new PaymentIntegrationService(
             $app->make('cache')->store(),
+        ));
+        $this->app->singleton(GatewaySettingsManager::class, static fn (Application $app): GatewaySettingsManager => new GatewaySettingsManager(
+            $app->make(PaymentIntegrationService::class),
+            $app->make(EnvironmentManager::class),
         ));
 
         $this->app->singleton(GatewayManager::class, static fn (Application $app): GatewayManager => new GatewayManager(
@@ -119,25 +124,25 @@ final class PaymentServiceProvider extends ServiceProvider
             ]);
 
             $this->publishes([
-                __DIR__ . '/../config/payment-gateway.php' => config_path('payment-gateway.php'),
+                __DIR__.'/../config/payment-gateway.php' => config_path('payment-gateway.php'),
             ], 'payment-gateway-config');
 
             $this->publishes([
-                __DIR__ . '/../database/migrations' => database_path('migrations'),
+                __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'payment-gateway-migrations');
         }
 
-        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'payment-gateway');
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'payment-gateway');
 
         if ($this->flag('payment-gateway.routes.enabled', true)) {
-            $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
+            $this->loadRoutesFrom(__DIR__.'/../routes/webhooks.php');
         }
 
         // The settings page writes credentials to .env; it only exists when
         // explicitly enabled, and then requires a Gate ability.
         if ($this->flag('payment-gateway.admin.enabled', false)) {
-            $this->loadRoutesFrom(__DIR__ . '/../routes/admin.php');
+            $this->loadRoutesFrom(__DIR__.'/../routes/admin.php');
         }
 
         if ($this->flag('payment-gateway.reconciliation.schedule', true)) {
@@ -223,13 +228,13 @@ final class PaymentServiceProvider extends ServiceProvider
                             ->timeout($timeout)
                             ->asJson()
                             ->acceptJson()
-                            ->post(rtrim($apiBaseUrl, '/') . '/oauth/token', $payload);
+                            ->post(rtrim($apiBaseUrl, '/').'/oauth/token', $payload);
                     } catch (\Throwable $e) {
-                        throw new FawaterkApiException('Fawaterk OAuth token request failed: ' . $e::class);
+                        throw new FawaterkApiException('Fawaterk OAuth token request failed: '.$e::class);
                     }
 
                     $json = $response->json();
-                    if (!is_array($json)) {
+                    if (! is_array($json)) {
                         $json = ['raw' => mb_substr((string) $response->body(), 0, 2000)];
                     }
 

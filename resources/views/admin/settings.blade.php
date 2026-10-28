@@ -45,7 +45,7 @@
 
                     <div class="card-body">
                         @foreach($package->gateways as $gateway)
-                            @php($gatewayConfig = $gatewayConfigs[$package->package]['gateways'][$gateway->gateway] ?? [])
+                            @php($structured = $gateways[$gateway->gateway] ?? ['mode' => null, 'credentials' => [], 'settings' => []])
                             <div class="card border mb-4">
                                 <div class="card-header d-flex align-items-center justify-content-between">
                                     <div>
@@ -62,35 +62,26 @@
 
                                 <div class="card-body">
                                     <div class="row">
-                                        @foreach(array_merge((array) ($gatewayConfig['env'] ?? []), (array) ($gatewayConfig['extra_env'] ?? [])) as $key => $field)
-                                            @php($value = $values[$key] ?? null)
-                                            @php($type = $field['type'] ?? 'text')
-                                            <div class="col-lg-6">
-                                                <div class="form-group">
-                                                    <label for="{{ strtolower($key) }}">{{ __($field['label'] ?? $key) }}</label>
-                                                    @if($type === 'select')
-                                                        <select class="form-control" id="{{ strtolower($key) }}" name="env[{{ $key }}]">
-                                                            @foreach((array) ($field['options'] ?? []) as $optionValue => $optionLabel)
-                                                                <option value="{{ $optionValue }}" {{ (string) $value === (string) $optionValue ? 'selected' : '' }}>{{ __($optionLabel) }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    @elseif($type === 'boolean')
-                                                        <div class="custom-switches-stacked mt-2">
-                                                            <label class="custom-switch">
-                                                                <input type="hidden" name="env[{{ $key }}]" value="0">
-                                                                <input type="checkbox" name="env[{{ $key }}]" value="1" class="custom-switch-input" {{ filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
-                                                                <span class="custom-switch-indicator"></span>
-                                                                <span class="custom-switch-description">{{ __('Enabled') }}</span>
-                                                            </label>
-                                                        </div>
-                                                    @else
-                                                        <input type="{{ $type === 'secret' ? 'password' : ($type === 'number' ? 'number' : ($type === 'url' ? 'url' : 'text')) }}" class="form-control" id="{{ strtolower($key) }}" name="env[{{ $key }}]" value="{{ $type === 'secret' ? '' : $value }}" @if($type === 'number') min="{{ (int) ($field['min'] ?? 0) }}" max="{{ (int) ($field['max'] ?? 100000) }}" @endif autocomplete="{{ $type === 'secret' ? 'new-password' : 'off' }}" placeholder="{{ $type === 'secret' && filled($value) ? __('Leave blank to keep current value') : '' }}">
-                                                    @endif
-                                                    @if($type === 'secret' && filled($value))
-                                                        <small class="text-muted">{{ __('A value is already configured. Leave this field empty to keep it unchanged.') }}</small>
-                                                    @endif
-                                                </div>
+                                        @if($structured['mode'] !== null)
+                                            @include('payment-gateway::admin.partials.field', ['field' => $structured['mode']])
+                                        @endif
+                                    </div>
+
+                                    @foreach($structured['credentials'] as $mode => $credentialFields)
+                                        @if($credentialFields !== [])
+                                            <h6 class="mt-2 mb-3">{{ $mode === 'live' ? __('Live credentials') : __('Test credentials') }}</h6>
+                                            <div class="row">
+                                                @foreach($credentialFields as $field)
+                                                    @include('payment-gateway::admin.partials.field', ['field' => $field])
+                                                @endforeach
                                             </div>
+                                        @endif
+                                    @endforeach
+
+                                    <h6 class="mt-2 mb-3">{{ __('Settings') }}</h6>
+                                    <div class="row">
+                                        @foreach($structured['settings'] as $field)
+                                            @include('payment-gateway::admin.partials.field', ['field' => $field])
                                         @endforeach
 
                                         <div class="col-lg-6">

@@ -37,10 +37,11 @@ php artisan vendor:publish --tag=payment-gateway-config
 ### Kashier
 | المتغير | ملاحظة |
 |---|---|
-| `KASHIER_ENVIRONMENT` | `test` أو `live` (المفاتيح لازم تكون من نفس البيئة) |
-| `KASHIER_MERCHANT_ID` | `MID-xxx` |
-| `KASHIER_PAYMENT_API_KEY` | بيتحقق بيه من توقيع الـ webhook وصفحة الرجوع |
-| `KASHIER_SECRET_KEY` | header اسمه `Authorization` في الـ API calls |
+| `KASHIER_ENVIRONMENT` | `test` أو `live`، وبيختار أنهي مجموعة مفاتيح شغالة |
+| `KASHIER_TEST_MERCHANT_ID` / `KASHIER_LIVE_MERCHANT_ID` | `MID-xxx` |
+| `KASHIER_TEST_PAYMENT_API_KEY` / `KASHIER_LIVE_PAYMENT_API_KEY` | بيتحقق بيه من توقيع الـ webhook وصفحة الرجوع |
+| `KASHIER_TEST_SECRET_KEY` / `KASHIER_LIVE_SECRET_KEY` | header اسمه `Authorization` في الـ API calls |
+| `KASHIER_MERCHANT_ID` / `KASHIER_PAYMENT_API_KEY` / `KASHIER_SECRET_KEY` | القديمة: بتتستخدم لو مفتاح الوضع الحالي فاضي. وصفحة الإعدادات بتخليها نسخة من الوضع الشغال |
 | `KASHIER_RETURN_URL` | الافتراضي لـ `merchantRedirect` (ممكن يتغيّر لكل دفع بـ `returnUrl`) |
 | `KASHIER_SERVER_WEBHOOK_URL` | بيتبعت كـ `serverWebhook` مع كل session |
 | `KASHIER_ALLOWED_METHODS` | الافتراضي `card,wallet`. التقسيط وBNPL ممنوعين عن قصد |
@@ -51,9 +52,10 @@ php artisan vendor:publish --tag=payment-gateway-config
 ### Fawaterk
 | المتغير | ملاحظة |
 |---|---|
-| `FAWATERK_ENVIRONMENT` | `test` (staging.fawaterk.com) أو `live` (app.fawaterk.com) |
-| `FAWATERK_CLIENT_ID` / `FAWATERK_CLIENT_SECRET` | OAuth client credentials، والـ token بيتخزن في الـ cache |
-| `FAWATERK_VENDOR_API_KEY` | HMAC الـ webhooks |
+| `FAWATERK_ENVIRONMENT` | `test` (staging.fawaterk.com) أو `live` (app.fawaterk.com)، وبيختار أنهي مجموعة مفاتيح شغالة |
+| `FAWATERK_{TEST,LIVE}_CLIENT_ID` / `FAWATERK_{TEST,LIVE}_CLIENT_SECRET` | OAuth client credentials، والـ token بيتخزن في الـ cache |
+| `FAWATERK_{TEST,LIVE}_VENDOR_API_KEY` | HMAC الـ webhooks |
+| `FAWATERK_CLIENT_ID` / `FAWATERK_CLIENT_SECRET` / `FAWATERK_VENDOR_API_KEY` | القديمة: بتتستخدم لو مفتاح الوضع الحالي فاضي |
 | `FAWATERK_SUCCESS_URL` / `FAIL_URL` / `PENDING_URL` / `BACK_URL` | الـ success والـ back بيتغيّروا لكل دفع. الـ fail والـ pending من الـ config بس (R4) |
 | `FAWATERK_WEBHOOK_URL` | **لازم** يكون فيه `_json`، وإلا بيترفض |
 

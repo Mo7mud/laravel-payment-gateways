@@ -8,6 +8,16 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Kashier\KashierSignatureVerifier;
 use Mo7mud\LaravelPaymentGateway\Support\PayloadRedactor;
 use Mo7mud\LaravelPaymentGateway\Support\ReturnRedirect;
 
+// Credentials are kept per mode (KASHIER_TEST_* / KASHIER_LIVE_*, FAWATERK_TEST_* /
+// FAWATERK_LIVE_*); <PREFIX>_ENVIRONMENT picks the active set. The unprefixed keys
+// (KASHIER_MERCHANT_ID, ...) are the fallback, so existing .env files keep working.
+$paymentGatewayCredential = static function (string $prefix, string $name): string {
+    $mode = strtolower((string) env($prefix.'_ENVIRONMENT', 'test')) === 'live' ? 'LIVE' : 'TEST';
+    $value = env($prefix.'_'.$mode.'_'.$name);
+
+    return is_string($value) && $value !== '' ? $value : (string) env($prefix.'_'.$name, '');
+};
+
 return [
     'default' => env('PAYMENT_GATEWAY', 'kashier'),
 
@@ -41,7 +51,7 @@ return [
         'prefix' => env('PAYMENT_GATEWAY_ROUTE_PREFIX', 'payment-gateway'),
         // Gateways send every notification from a few IP addresses, so the limit
         // is shared by all payments. Raise it for high volume.
-        'middleware' => ['api', 'throttle:' . (int) env('PAYMENT_GATEWAY_WEBHOOK_RATE_LIMIT', 600) . ',1'],
+        'middleware' => ['api', 'throttle:'.(int) env('PAYMENT_GATEWAY_WEBHOOK_RATE_LIMIT', 600).',1'],
     ],
 
     'return' => [
@@ -124,6 +134,7 @@ return [
         'content_section' => 'main',
         // API base URLs are deliberately not editable here: changing them would
         // send credentials to another host. Set them in the deployment .env.
+        // Any field whose key contains BASE_URL is ignored even if added below.
         'packages' => [
             'mo7mud/laravel-payment-gateway' => [
                 'display_name' => 'mo7mud/laravel-payment-gateway',
@@ -131,13 +142,27 @@ return [
                     'fawaterk' => [
                         'display_name' => 'Fawaterk',
                         'sort_order' => 20,
-                        'env' => [
-                            'FAWATERK_ENVIRONMENT' => [
-                                'label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'live' => 'Live'],
+                        // test/live switch: picks the active credential set; the other set stays saved.
+                        'mode' => [
+                            'env' => 'FAWATERK_ENVIRONMENT', 'label' => 'Environment', 'default' => 'test',
+                            'options' => ['test' => 'Test', 'live' => 'Live'],
+                        ],
+                        // One value per mode. legacy_env mirrors the active value for older configs.
+                        'credentials' => [
+                            'client_id' => [
+                                'label' => 'OAuth Client ID', 'type' => 'text', 'legacy_env' => 'FAWATERK_CLIENT_ID',
+                                'env' => ['test' => 'FAWATERK_TEST_CLIENT_ID', 'live' => 'FAWATERK_LIVE_CLIENT_ID'],
                             ],
-                            'FAWATERK_CLIENT_ID' => ['label' => 'OAuth Client ID', 'type' => 'text'],
-                            'FAWATERK_CLIENT_SECRET' => ['label' => 'OAuth Client Secret', 'type' => 'secret'],
-                            'FAWATERK_VENDOR_API_KEY' => ['label' => 'Vendor API Key (Webhook HMAC)', 'type' => 'secret'],
+                            'client_secret' => [
+                                'label' => 'OAuth Client Secret', 'type' => 'secret', 'legacy_env' => 'FAWATERK_CLIENT_SECRET',
+                                'env' => ['test' => 'FAWATERK_TEST_CLIENT_SECRET', 'live' => 'FAWATERK_LIVE_CLIENT_SECRET'],
+                            ],
+                            'vendor_api_key' => [
+                                'label' => 'Vendor API Key (Webhook HMAC)', 'type' => 'secret', 'legacy_env' => 'FAWATERK_VENDOR_API_KEY',
+                                'env' => ['test' => 'FAWATERK_TEST_VENDOR_API_KEY', 'live' => 'FAWATERK_LIVE_VENDOR_API_KEY'],
+                            ],
+                        ],
+                        'env' => [
                             'FAWATERK_SUCCESS_URL' => ['label' => 'Success URL', 'type' => 'url'],
                             'FAWATERK_FAIL_URL' => ['label' => 'Fail URL', 'type' => 'url'],
                             'FAWATERK_PENDING_URL' => ['label' => 'Pending URL', 'type' => 'url'],
@@ -165,13 +190,25 @@ return [
                     'kashier' => [
                         'display_name' => 'Kashier',
                         'sort_order' => 10,
-                        'env' => [
-                            'KASHIER_ENVIRONMENT' => [
-                                'label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'live' => 'Live'],
+                        'mode' => [
+                            'env' => 'KASHIER_ENVIRONMENT', 'label' => 'Environment', 'default' => 'test',
+                            'options' => ['test' => 'Test', 'live' => 'Live'],
+                        ],
+                        'credentials' => [
+                            'merchant_id' => [
+                                'label' => 'Merchant ID', 'type' => 'text', 'pattern' => '/^[A-Za-z0-9_-]+$/', 'legacy_env' => 'KASHIER_MERCHANT_ID',
+                                'env' => ['test' => 'KASHIER_TEST_MERCHANT_ID', 'live' => 'KASHIER_LIVE_MERCHANT_ID'],
                             ],
-                            'KASHIER_MERCHANT_ID' => ['label' => 'Merchant ID', 'type' => 'text', 'pattern' => '/^[A-Za-z0-9_-]+$/'],
-                            'KASHIER_PAYMENT_API_KEY' => ['label' => 'Payment API Key', 'type' => 'secret'],
-                            'KASHIER_SECRET_KEY' => ['label' => 'Secret Key', 'type' => 'secret'],
+                            'payment_api_key' => [
+                                'label' => 'Payment API Key', 'type' => 'secret', 'legacy_env' => 'KASHIER_PAYMENT_API_KEY',
+                                'env' => ['test' => 'KASHIER_TEST_PAYMENT_API_KEY', 'live' => 'KASHIER_LIVE_PAYMENT_API_KEY'],
+                            ],
+                            'secret_key' => [
+                                'label' => 'Secret Key', 'type' => 'secret', 'legacy_env' => 'KASHIER_SECRET_KEY',
+                                'env' => ['test' => 'KASHIER_TEST_SECRET_KEY', 'live' => 'KASHIER_LIVE_SECRET_KEY'],
+                            ],
+                        ],
+                        'env' => [
                             'KASHIER_ALLOWED_METHODS' => ['label' => 'Allowed Methods', 'type' => 'text', 'pattern' => '/^[a-z_]+(,[a-z_]+)*$/'],
                             'KASHIER_PAYMENT_TYPE' => ['label' => 'Payment Type', 'type' => 'select', 'options' => ['credit' => 'Credit']],
                             'KASHIER_DEFAULT_METHOD' => ['label' => 'Default Method', 'type' => 'text', 'pattern' => '/^[a-z_]+$/'],
@@ -213,9 +250,9 @@ return [
             'test' => env('FAWATERK_TEST_API_BASE_URL', 'https://staging.fawaterk.com'),
             'live' => env('FAWATERK_LIVE_API_BASE_URL', 'https://app.fawaterk.com'),
         ],
-        'client_id' => env('FAWATERK_CLIENT_ID', ''),
-        'client_secret' => env('FAWATERK_CLIENT_SECRET', ''),
-        'vendor_api_key' => env('FAWATERK_VENDOR_API_KEY', ''),
+        'client_id' => $paymentGatewayCredential('FAWATERK', 'CLIENT_ID'),
+        'client_secret' => $paymentGatewayCredential('FAWATERK', 'CLIENT_SECRET'),
+        'vendor_api_key' => $paymentGatewayCredential('FAWATERK', 'VENDOR_API_KEY'),
         'success_url' => env('FAWATERK_SUCCESS_URL', ''),
         'fail_url' => env('FAWATERK_FAIL_URL', ''),
         'pending_url' => env('FAWATERK_PENDING_URL', ''),
@@ -238,9 +275,9 @@ return [
 
     'kashier' => [
         'environment' => env('KASHIER_ENVIRONMENT', 'test'),
-        'merchant_id' => env('KASHIER_MERCHANT_ID', ''),
-        'payment_api_key' => env('KASHIER_PAYMENT_API_KEY', ''),
-        'secret_key' => env('KASHIER_SECRET_KEY', ''),
+        'merchant_id' => $paymentGatewayCredential('KASHIER', 'MERCHANT_ID'),
+        'payment_api_key' => $paymentGatewayCredential('KASHIER', 'PAYMENT_API_KEY'),
+        'secret_key' => $paymentGatewayCredential('KASHIER', 'SECRET_KEY'),
         'server_webhook' => env('KASHIER_SERVER_WEBHOOK_URL', ''),
         'return_url' => env('KASHIER_RETURN_URL', ''),
         'allowed_methods' => env('KASHIER_ALLOWED_METHODS', 'card,wallet'),

@@ -15,6 +15,35 @@ All notable changes to this package are documented here. The format follows
   capture is a late payment, as with gateways without a cancellation API.
 
 ### Added
+- `Admin\GatewaySettingsManager`: UI-agnostic settings API for any admin panel
+  (`fields()`, `gateways()`, `values()` with secrets masked, `packages()`,
+  `rules()`, `save()` returning `Admin\SettingsSaveResult`, `canAccess()`,
+  `authorize()`). The built-in settings controller now delegates to it; its
+  routes, view and responses are unchanged.
+- Per-mode credentials: `KASHIER_{TEST,LIVE}_{MERCHANT_ID,PAYMENT_API_KEY,SECRET_KEY}`
+  and `FAWATERK_{TEST,LIVE}_{CLIENT_ID,CLIENT_SECRET,VENDOR_API_KEY}`.
+  `<GATEWAY>_ENVIRONMENT` picks the active set; the other stays saved. The
+  unprefixed keys still work as a fallback, and the settings page keeps them
+  equal to the active set (emptied when that set has no value).
+- `GatewaySettingsManager::gateways()` returns each gateway ready for tabs and
+  sections: switch state, `mode`, `credentials.test`, `credentials.live`,
+  `settings`, `webhook_url`, `return_url`.
+- Settings: submitting the secret placeholder (`__configured__`) keeps the
+  stored secret instead of writing the placeholder.
+- Settings: keys containing `BASE_URL` are never editable, even when added to
+  `admin.packages.*.env`.
+
+### Changed
+- Development: `phpstan-baseline.neon` records the 169 level-6 findings that
+  predate regular PHPStan runs (array value types, model `@property` gaps,
+  redundant checks; none changes runtime behaviour). New code must pass
+  without adding to it.
+- `admin.packages.*.gateways.*` config: credentials moved from `env` to the new
+  `mode` and `credentials` entries. A published config keeps working as
+  before (no mode switch). An override of the view in
+  `resources/views/vendor/payment-gateway/admin/settings.blade.php` no longer
+  shows the credential fields with the new config: render them from the new
+  `$gateways` view variable.
 - `KashierGateway` takes an optional PSR logger (last constructor argument,
   `logger:`); the service provider passes the package log channel.
 
