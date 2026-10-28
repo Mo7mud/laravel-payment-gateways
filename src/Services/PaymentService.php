@@ -94,11 +94,15 @@ final class PaymentService
 
     private readonly PayloadRedactor $redactor;
 
+    /** @var array<mixed> */
     private readonly array $options;
 
     /** @var list<object> events raised inside the current transaction */
     private array $outbox = [];
 
+    /**
+     * @param  array<mixed>  $options
+     */
     public function __construct(
         private readonly GatewayManager $gateways,
         private readonly PaymentRepositoryInterface $payments,
@@ -206,6 +210,9 @@ final class PaymentService
         return $this->creationResultFromPayment($payment, $result->metadata);
     }
 
+    /**
+     * @param  array<mixed>  $metadata
+     */
     private function assertReturnRedirectAllowed(array $metadata): void
     {
         if (! array_key_exists(ReturnRedirect::METADATA_KEY, $metadata)) {
@@ -346,6 +353,9 @@ final class PaymentService
         }
     }
 
+    /**
+     * @param  array<mixed>  $extraMetadata
+     */
     private function creationResultFromPayment(Payment $payment, array $extraMetadata = []): PaymentCreationResult
     {
         return new PaymentCreationResult(
@@ -460,7 +470,7 @@ final class PaymentService
             );
 
             $payment->reconcile_attempts = $attempts;
-            $payment->next_reconcile_at = $now->modify('+'.$delay.' seconds');
+            $payment->next_reconcile_at = $now->setTimestamp($now->getTimestamp() + $delay);
             $this->payments->save($payment);
         });
     }
@@ -596,7 +606,7 @@ final class PaymentService
     {
         return $this->atomic(function () use ($reference, $paidBefore, $now, $maxDispatches): bool {
             $payment = $this->payments->findByReferenceForUpdate($reference);
-            $dispatches = (int) ($payment?->fulfilment_dispatches ?? 0);
+            $dispatches = (int) ($payment->fulfilment_dispatches ?? 0);
             $next = $payment?->next_fulfilment_dispatch_at;
 
             // Re-checked under the lock: markFulfilled() may have run since the lookup.
@@ -1637,6 +1647,9 @@ final class PaymentService
         );
     }
 
+    /**
+     * @param  array<mixed>  $metadata
+     */
     private function assertNoReservedMetadata(PaymentGatewayInterface $gateway, array $metadata): void
     {
         $reserved = self::GENERIC_RESERVED_KEYS;

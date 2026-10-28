@@ -8,6 +8,11 @@ use Closure;
 
 interface TransactionRunnerInterface
 {
-    /** @template T */
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
     public function run(Closure $callback): mixed;
 }

@@ -12,7 +12,8 @@
 | R2 ربط webhook فواتيرك | ✅ من التوثيق | فاضل اختبار `findByGatewayReference` + log `warning` لـ `PaymentNotFound` |
 | R3 الرجوع: status sync + redirect لكل دفع | ✅ | `return.sync_status` و`return.allowed_hosts` و`{status}`/`{gateway}` |
 | R16 `cancelPayment()` | ✅ | E-K4: الـ abandon بيفشل على Kashier test، فالإلغاء بيكمّل محلياً. ومستنيين رد الدعم |
-| طبقة الإعدادات لأي لوحة (`package-admin-refactor.md`) | ✅ الخطوات 1–4 | `GatewaySettingsManager` + `SettingsSaveResult`، ومفاتيح test/live لكل بوابة، والكونترولر بقى رفيع، والترجمة (ar/en)، وإرشادات Boost، والتوثيق في `docs/usage.md`. الجاي: patch تنظيف phpstan وpint قبل Packagist |
+| طبقة الإعدادات لأي لوحة (`package-admin-refactor.md`) | ✅ الخطوات 1–4 | `GatewaySettingsManager` + `SettingsSaveResult`، ومفاتيح test/live لكل بوابة، والكونترولر بقى رفيع، والترجمة (ar/en)، وإرشادات Boost، والتوثيق في `docs/usage.md` |
+| التنظيف قبل Packagist | ✅ | Pint على الكود كله، وphpstan level 6 من غير baseline |
 | الباقي (R2 الاختبار، R4–R15، R17–R19) | ⏸️ مؤجّل | بيتعمل بس لو مشروع طلبه |
 
 ## قرارات
@@ -23,10 +24,10 @@
 - **E-K4:** فشل الـ abandon في Kashier مش بيوقّف `cancelPayment()`: قراءة الـ session هي اللي بتقرر، والـ session المفتوحة بتتلغي محلياً زي Fawaterk. وطلب الـ abandon نفسه متغيّرش (بيبعت `Authorization` زي ما هو) لحد ما الدعم يرد.
 
 - **الإعدادات:** الحفظ بيرجّع كل التحذيرات (`warnings`)، والكونترولر بيعرض أولها زي الأول. ومفاتيح الـ gateways في الحفظ بتفضل `id` الصف. وأي secret بييجي بقيمة الـ placeholder بيتجاهل.
-- **PHPStan:** الأخطاء القديمة (169) في `phpstan-baseline.neon`، وأي كود جديد لازم يعدّي من غير ما يزوّدها. والتنظيف patch لوحده بعد الخطوة 4 وقبل Packagist.
+- **PHPStan:** level 6 من غير baseline، وأي كود جديد لازم يعدّي نضيف. والـ arrays اللي جاية من البوابات أو الـ metadata نوعها `array<mixed>`.
 - **الترجمة:** الـ `label` و`display_name` والخيارات في الـ config مفاتيح `payment-gateway::admin.*`، و`Support\Translation::get()` بيرجّع القيمة زي ما هي لو مفيش ترجمة. والمدير بيرجّع النصوص مترجمة جاهزة لأي لوحة. ورسائل `EnvironmentManager` الداخلية فضلت إنجليزي.
 - **مفاتيح test/live:** بتتحسب في `config/payment-gateway.php` (مفتاح الوضع الأول، وبعده القديم)، فمفيش تعديل في الـ gateways. والحفظ بينقل القيم القديمة لوضعها، وبيخلّي المفاتيح القديمة نسخة من الوضع الشغال (أو فاضية)، عشان أي config منشور قديم يفضل شغال. وأي مفتاح فيه `BASE_URL` مقفول.
 
 ## آخر إيداع
-- `docs(usage): document GatewaySettingsManager and translations`
+- `chore(phpstan): fix level-6 findings and drop the baseline` (فوق `style: apply pint`)
 - `chore(release): v0.2.0` (babe4f5)، وبعده E-K4: `cancelPayment()` في Kashier بيكمّل لو الـ abandon فشل

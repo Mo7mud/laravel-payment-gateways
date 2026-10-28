@@ -11,5 +11,8 @@ namespace Mo7mud\LaravelPaymentGateway\Gateways\Kashier;
  */
 interface KashierSessionCancellationInterface
 {
+    /**
+     * @return array<mixed>
+     */
     public function abandonPaymentSession(string $sessionId): array;
 }

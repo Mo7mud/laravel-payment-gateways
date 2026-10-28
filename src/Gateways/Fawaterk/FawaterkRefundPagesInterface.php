@@ -10,6 +10,8 @@ namespace Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk;
  */
 interface FawaterkRefundPagesInterface
 {
-    /** @return array the raw Laravel paginator response (data, current_page, last_page...) */
+    /**
+     * @return array<mixed> the raw Laravel paginator response (data, current_page, last_page...)
+     */
     public function listRefundsPage(int $page): array;
 }

@@ -27,6 +27,8 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
  * @property string|null $reason
  * @property string|null $last_error
  * @property bool|null $outcome_unknown
+ * @property \DateTimeImmutable|null $completed_at
+ * @property \DateTimeInterface|null $created_at
  */
 final class PaymentRefund extends Model
 {

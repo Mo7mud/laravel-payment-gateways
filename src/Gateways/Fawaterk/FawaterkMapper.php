@@ -19,6 +19,9 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 
 final class FawaterkMapper
 {
+    /**
+     * @param  array<mixed>  $response
+     */
     public function creationResult(CreatePaymentRequest $request, array $response): PaymentCreationResult
     {
         $data = is_array($response['data'] ?? null) ? $response['data'] : [];
@@ -69,7 +72,8 @@ final class FawaterkMapper
 
     /**
      * @param  Money|null  $expectedAmount  The stored payment amount. Fawaterk reports
-     *                                      `total` converted to EGP, so it is only compared for EGP payments.
+     * @param  array<mixed>  $response
+     *                                  `total` converted to EGP, so it is only compared for EGP payments.
      */
     public function statusResult(string $paymentReference, array $response, ?Money $expectedAmount = null): PaymentStatusResult
     {
@@ -116,6 +120,8 @@ final class FawaterkMapper
      *    "paid" — harmless because of the verification above;
      *  - cancel: referenceId, PaymentMethod;
      *  - refund: transactionId, amount, currency.
+     *
+     * @param  array<mixed>  $payload
      */
     public function webhookResult(string $eventType, array $payload): WebhookResult
     {
@@ -298,6 +304,9 @@ final class FawaterkMapper
         return (string) $value;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function decodePayLoad(mixed $payLoad): array
     {
         if (is_array($payLoad)) {
@@ -317,6 +326,9 @@ final class FawaterkMapper
         }
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     private function paymentReferenceFromPayload(array $payload): string
     {
         $payLoad = $this->decodePayLoad($payload['pay_load'] ?? null);
@@ -331,6 +343,9 @@ final class FawaterkMapper
         return '';
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     private function eventId(string $eventType, array $payload): string
     {
         $natural = match ($eventType) {

@@ -18,6 +18,8 @@ interface WebhookEventRepositoryInterface
     /**
      * Records receipt of an event. Returns true when this call created the row,
      * false when the event already exists (duplicate delivery or retry).
+     *
+     * @param  array<mixed>  $payload
      */
     public function storeIfAbsent(
         string $gateway,

@@ -30,6 +30,10 @@ final class PayloadRedactor
         }
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<mixed>
+     */
     public function redact(array $payload): array
     {
         $clean = [];
@@ -49,6 +53,9 @@ final class PayloadRedactor
     /**
      * Keeps only scalar values, so gateway metadata cannot grow without bound
      * or smuggle nested personal data into the payment record.
+     *
+     * @param  array<mixed>  $metadata
+     * @return array<mixed>
      */
     public static function scalarsOnly(array $metadata): array
     {

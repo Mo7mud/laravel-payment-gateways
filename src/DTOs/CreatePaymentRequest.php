@@ -10,7 +10,8 @@ final readonly class CreatePaymentRequest
 {
     /**
      * @param  string|null  $gatewayOrderReference  Merchant order id sent to the gateway.
-     *                                              Set by PaymentService (equals the payment reference on the first attempt).
+     * @param  array<mixed>  $metadata
+     *                                  Set by PaymentService (equals the payment reference on the first attempt).
      */
     public function __construct(
         public string $paymentReference,

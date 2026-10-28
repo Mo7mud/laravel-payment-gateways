@@ -10,6 +10,9 @@ namespace Mo7mud\LaravelPaymentGateway\Exceptions;
  */
 abstract class GatewayApiException extends PaymentGatewayException
 {
+    /**
+     * @param  array<mixed>  $response
+     */
     public function __construct(
         string $message,
         public readonly int $statusCode = 0,

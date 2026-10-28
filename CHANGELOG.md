@@ -48,10 +48,15 @@ All notable changes to this package are documented here. The format follows
   `admin.packages.*.env`.
 
 ### Changed
-- Development: `phpstan-baseline.neon` records the 169 level-6 findings that
-  predate regular PHPStan runs (array value types, model `@property` gaps,
-  redundant checks; none changes runtime behaviour). New code must pass
-  without adding to it.
+- Development: PHPStan level 6 passes without a baseline
+  (`phpstan-baseline.neon` removed): array value types, model `@property`
+  annotations, a typed `TransactionRunnerInterface::run()` template, and
+  redundant checks removed. `KashierSignatureVerifier::verifyWebhook()` is
+  documented as `array<string, mixed>` (callers already validate each value).
+  Runtime behaviour is unchanged, except that an unknown Fawaterk webhook type
+  reaching the signature check now throws `WebhookVerificationException`
+  instead of `UnhandledMatchError`.
+- Code style: the whole codebase is formatted with Pint.
 - `admin.packages.*.gateways.*` config: credentials moved from `env` to the new
   `mode` and `credentials` entries. A published config keeps working as
   before (no mode switch). An override of the view in

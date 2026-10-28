@@ -16,7 +16,9 @@ final readonly class WebhookRequest
      *                           the raw bytes (e.g. PayTabs, Stripe) must verify against this, never
      *                           against a re-encoded payload.
      * @param  array<string, mixed>  $query  Query-string parameters of the notification
-     *                                       URL. Some gateways send the signature there (e.g. Paymob's "hmac").
+     * @param  array<mixed>  $headers
+     * @param  array<mixed>  $payload
+     *                                 URL. Some gateways send the signature there (e.g. Paymob's "hmac").
      */
     public function __construct(
         public array $payload,

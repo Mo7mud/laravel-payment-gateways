@@ -14,7 +14,8 @@ final readonly class PaymentStatusResult
      * @param  PaymentStatus|null  $status  null means the gateway reported a status the
      *                                      package does not recognise; the stored status is left unchanged.
      * @param  string|null  $merchantOrderReference  The merchant order id the gateway data
-     *                                               belongs to, when the gateway reports it. Used to reject mismatched data.
+     * @param  array<mixed>  $metadata
+     *                                  belongs to, when the gateway reports it. Used to reject mismatched data.
      */
     public function __construct(
         public string $paymentReference,

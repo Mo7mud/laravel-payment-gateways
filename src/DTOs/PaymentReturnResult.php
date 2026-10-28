@@ -13,6 +13,10 @@ use Mo7mud\LaravelPaymentGateway\Enums\PaymentStatus;
  */
 final readonly class PaymentReturnResult
 {
+    /**
+     * @param  array<mixed>  $metadata
+     * @param  array<mixed>  $rawQuery
+     */
     public function __construct(
         public string $paymentReference,
         public PaymentStatus $observedStatus,

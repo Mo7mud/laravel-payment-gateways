@@ -48,6 +48,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
 
     private const ORDER_PAGE_SIZE = 20;
 
+    /**
+     * @param  array<mixed>  $config
+     */
     public function __construct(
         private readonly KashierClientInterface $client,
         private readonly KashierSignatureVerifier $signatures,
@@ -277,7 +280,10 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         return $orders;
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * @param  array<mixed>  $response
+     * @return list<array<string, mixed>>
+     */
     private function ordersFrom(array $response): array
     {
         $data = is_array($response['data'] ?? null) ? $response['data'] : [];
@@ -289,6 +295,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
      * "search" is a partial match, so only exact merchantOrderId matches are
      * considered. Among them: stored session, stored transaction, a successful
      * capture, then the most recently modified order.
+     *
+     * @param  array<mixed>  $orders
+     * @return array<mixed>|null
      */
     private function selectBestOrder(array $orders, PaymentStatusRequest $request): ?array
     {
@@ -398,6 +407,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         );
     }
 
+    /**
+     * @param  array<mixed>  $data
+     */
     private function mapSessionStatusResult(PaymentStatusRequest $request, array $data): PaymentStatusResult
     {
         $gatewayStatus = strtoupper((string) ($data['status'] ?? ''));
@@ -437,6 +449,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         );
     }
 
+    /**
+     * @param  array<mixed>  $data
+     */
     private function mapOrderStatusResult(PaymentStatusRequest $request, array $data): PaymentStatusResult
     {
         $gatewayStatus = strtoupper((string) ($data['status'] ?? ''));
@@ -592,7 +607,8 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         $transactionId = (string) $signed['transactionId'];
         $merchantOrderId = (string) $signed['merchantOrderId'];
 
-        if (! is_scalar($signed['amount']) || ! is_numeric((string) $signed['amount'])) {
+        // amount is a required signed key, so it is already a non-empty scalar here.
+        if (! is_numeric((string) $signed['amount'])) {
             throw new WebhookVerificationException('Kashier webhook amount is not numeric.');
         }
         $amount = Money::fromGatewayAmount((string) $signed['amount'], Currency::fromIso((string) $signed['currency']));
@@ -692,6 +708,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
     // Helpers
     // ------------------------------------------------------------------
 
+    /**
+     * @return array<mixed>
+     */
     private function forwardedMetadata(CreatePaymentRequest $request): array
     {
         $allowed = $this->config['forward_metadata_keys'] ?? [];
@@ -731,6 +750,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
             : PaymentStatus::PARTIALLY_REFUNDED;
     }
 
+    /**
+     * @return array<mixed>|null
+     */
     private function successfulCapture(mixed $transactions): ?array
     {
         if (! is_array($transactions)) {
@@ -751,6 +773,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         return null;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function lastTransaction(mixed $transactions): array
     {
         if (! is_array($transactions)) {
@@ -782,6 +807,9 @@ final class KashierGateway implements DeclaresReservedMetadataKeys, PaymentCance
         return false;
     }
 
+    /**
+     * @param  array<mixed>  $order
+     */
     private function orderTime(array $order): int
     {
         return $this->date($order['lastModifiedDate'] ?? $order['date'] ?? $order['creationDate'] ?? null)?->getTimestamp() ?? 0;

@@ -10,6 +10,9 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 
 final readonly class PaymentCreationResult
 {
+    /**
+     * @param  array<mixed>  $metadata
+     */
     public function __construct(
         public string $paymentReference,
         public PaymentStatus $status,

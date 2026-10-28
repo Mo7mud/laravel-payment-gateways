@@ -17,7 +17,9 @@ final readonly class WebhookResult
      * @param  bool  $requiresVerification  When true, PaymentService confirms the state
      *                                      with the gateway API before changing anything.
      * @param  bool  $referenceTrusted  Whether $paymentReference is covered by the
-     *                                  gateway signature and may be used to locate the payment.
+     * @param  array<mixed>  $metadata
+     * @param  array<mixed>  $rawPayload
+     *                                    gateway signature and may be used to locate the payment.
      */
     public function __construct(
         public string $eventId,

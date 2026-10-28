@@ -53,7 +53,7 @@ final class EnvironmentManager
     }
 
     /**
-     * @param  array<string, string|int|bool|null>  $values  null values are skipped
+     * @param  array<array-key, string|int|bool|null>  $values  null values are skipped
      */
     public function set(array $values): void
     {

@@ -27,6 +27,9 @@ final class EloquentWebhookEventRepository implements WebhookEventRepositoryInte
             ->first();
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function storeIfAbsent(
         string $gateway,
         string $eventId,

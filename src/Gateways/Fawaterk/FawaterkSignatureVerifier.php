@@ -11,6 +11,9 @@ final class FawaterkSignatureVerifier
 {
     public function __construct(private readonly string $vendorApiKey) {}
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function verifyPaidOrPending(array $payload): void
     {
         $provided = (string) ($payload['transactionHashKey'] ?? '');
@@ -25,6 +28,9 @@ final class FawaterkSignatureVerifier
         ]));
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function verifyFailed(array $payload): void
     {
         $provided = (string) ($payload['hashKey'] ?? '');
@@ -39,6 +45,9 @@ final class FawaterkSignatureVerifier
         ]));
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function verifyCancel(array $payload): void
     {
         $provided = (string) ($payload['hashKey'] ?? '');
@@ -51,6 +60,9 @@ final class FawaterkSignatureVerifier
         ]));
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function verifyRefund(array $payload): void
     {
         $provided = (string) ($payload['hashKey'] ?? '');

@@ -9,6 +9,9 @@ namespace Mo7mud\LaravelPaymentGateway\Support;
  */
 final class Json
 {
+    /**
+     * @param  array<mixed>  $payload
+     */
     public static function encode(array $payload): string
     {
         $token = 'DECIMAL_'.bin2hex(random_bytes(8)).'_';
@@ -21,6 +24,9 @@ final class Json
         return strtr($json, $replacements);
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public static function containsDecimals(array $payload): bool
     {
         foreach ($payload as $value) {
@@ -32,7 +38,11 @@ final class Json
         return false;
     }
 
-    /** @param array<string, string> $replacements */
+    /**
+     * @param  array<string, string>  $replacements
+     * @param  array<mixed>  $payload
+     * @return array<mixed>
+     */
     private static function prepare(array $payload, string $token, array &$replacements): array
     {
         foreach ($payload as $key => $value) {

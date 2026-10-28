@@ -10,5 +10,8 @@ namespace Mo7mud\LaravelPaymentGateway\Gateways\Kashier;
  */
 interface KashierPaginatedOrdersInterface
 {
+    /**
+     * @return array<mixed>
+     */
     public function getOrdersPage(string $merchantOrderId, int $page, int $limit = 20): array;
 }

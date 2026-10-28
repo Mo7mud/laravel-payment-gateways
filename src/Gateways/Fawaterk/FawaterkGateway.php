@@ -58,6 +58,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         'refund' => 'refund',
     ];
 
+    /**
+     * @param  array<mixed>  $config
+     */
     public function __construct(
         private readonly FawaterkClientInterface $client,
         private readonly FawaterkMapper $mapper,
@@ -143,6 +146,7 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
             'failed' => $this->signatures->verifyFailed($payload),
             'cancelled' => $this->signatures->verifyCancel($payload),
             'refund' => $this->signatures->verifyRefund($payload),
+            default => throw new WebhookVerificationException('Unsupported Fawaterk webhook type.'),
         };
 
         return $this->mapper->webhookResult($eventType, $payload);
@@ -241,6 +245,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return $this->mapper->statusResult($request->paymentReference, $response, $request->expectedAmount);
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildTransactionPayload(CreatePaymentRequest $request): array
     {
         $customer = $this->mapCustomer($request);
@@ -295,13 +302,16 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return $payload;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function mapCustomer(CreatePaymentRequest $request): array
     {
         $customer = $request->customer;
-        $name = trim((string) ($customer?->name ?? ''));
+        $name = trim((string) ($customer->name ?? ''));
 
         if ($name === '') {
-            $reference = trim((string) ($customer?->reference ?? $customer?->id ?? ''));
+            $reference = trim((string) ($customer->reference ?? $customer->id ?? ''));
             if ($reference === '') {
                 throw new FawaterkConfigurationException('Fawaterk customer first_name and last_name require CustomerData::name or a customer reference.');
             }
@@ -312,7 +322,7 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         $firstName = (string) ($parts[0] ?? 'Customer');
         $lastName = count($parts) > 1
             ? implode(' ', array_slice($parts, 1))
-            : (string) ($customer?->reference ?? 'Customer');
+            : (string) ($customer->reference ?? 'Customer');
 
         $result = [
             'first_name' => $firstName,
@@ -335,6 +345,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return $result;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function cartItems(CreatePaymentRequest $request): array
     {
         $items = $request->metadata['cart_items'] ?? null;
@@ -386,9 +399,12 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
             throw new InvalidArgumentException('Fawaterk cart_items total must equal the payment amount.');
         }
 
-        return array_values($mapped);
+        return $mapped;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function redirectionUrls(CreatePaymentRequest $request): array
     {
         return array_filter([
@@ -411,12 +427,12 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
             return new GatewayRefundList([], false);
         }
 
-        $currency = $request->expectedAmount?->currency ?? Currency::egp();
-        $paged = $this->client instanceof FawaterkRefundPagesInterface;
+        $currency = $request->expectedAmount->currency ?? Currency::egp();
+        $pager = $this->client instanceof FawaterkRefundPagesInterface ? $this->client : null;
         $maxPages = max(1, (int) ($this->config['refund_list_max_pages'] ?? 20));
 
-        $first = $this->refundPage($paged ? $this->client->listRefundsPage(1) : $this->client->listRefunds());
-        $lastPage = $paged ? max(1, $first['last_page']) : 1;
+        $first = $this->refundPage($pager !== null ? $pager->listRefundsPage(1) : $this->client->listRefunds());
+        $lastPage = $pager !== null ? max(1, $first['last_page']) : 1;
 
         // Read newest pages first: a refund being confirmed is usually recent.
         $pages = $lastPage > 1 && $this->oldestFirst($first['items'])
@@ -425,8 +441,8 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         $pages = array_slice($pages, 0, $maxPages - 1);
 
         $items = $first['items'];
-        foreach ($pages as $page) {
-            $items = array_merge($items, $this->refundPage($this->client->listRefundsPage($page))['items']);
+        foreach ($pager !== null ? $pages : [] as $page) {
+            $items = array_merge($items, $this->refundPage($pager->listRefundsPage($page))['items']);
         }
 
         $records = [];
@@ -457,12 +473,15 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         usort($records, static fn (GatewayRefundRecord $a, GatewayRefundRecord $b): int => ($a->createdAt?->getTimestamp() ?? 0) <=> ($b->createdAt?->getTimestamp() ?? 0)
             ?: strcmp($a->reference, $b->reference));
 
-        $complete = $paged ? count($pages) + 1 >= $lastPage : $first['last_page'] <= 1;
+        $complete = $pager !== null ? count($pages) + 1 >= $lastPage : $first['last_page'] <= 1;
 
         return new GatewayRefundList($records, $complete);
     }
 
-    /** @return array{items: list<array>, last_page: int} */
+    /**
+     * @param  array<mixed>  $response
+     * @return array{items: list<array>, last_page: int}
+     */
     private function refundPage(array $response): array
     {
         // Accept both the bare paginator and a {status, data: paginator} wrapper.
@@ -475,6 +494,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return ['items' => $items, 'last_page' => (int) ($paginator['last_page'] ?? 1)];
     }
 
+    /**
+     * @param  array<mixed>  $items
+     */
     private function oldestFirst(array $items): bool
     {
         $first = isset($items[0]['created_at']) && is_string($items[0]['created_at']) ? $this->parseDate($items[0]['created_at']) : null;
@@ -489,6 +511,8 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
      * refundable_id is a transaction id for integration refunds (refund_type 3)
      * but an invoice id for invoice refunds, and both id spaces overlap, so
      * invoice-typed items are excluded (configurable).
+     *
+     * @param  array<mixed>  $item
      */
     private function refundBelongsTo(array $item, string $transactionId): bool
     {
@@ -525,6 +549,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function forwardedMetadata(CreatePaymentRequest $request): array
     {
         $allowed = $this->config['forward_metadata_keys'] ?? [];
@@ -612,6 +639,9 @@ final class FawaterkGateway implements DeclaresReservedMetadataKeys, PaymentCrea
         return $reasons;
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     private function detectWebhookType(array $payload): string
     {
         if (isset($payload['referenceId'])) {

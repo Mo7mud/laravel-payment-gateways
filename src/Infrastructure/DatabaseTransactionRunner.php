@@ -12,6 +12,12 @@ final class DatabaseTransactionRunner implements TransactionRunnerInterface
 {
     public function __construct(private readonly DatabaseManager $database) {}
 
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
     public function run(Closure $callback): mixed
     {
         return $this->database->transaction($callback);

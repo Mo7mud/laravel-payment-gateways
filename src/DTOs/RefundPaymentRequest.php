@@ -8,6 +8,9 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
 
 final readonly class RefundPaymentRequest
 {
+    /**
+     * @param  array<mixed>  $metadata
+     */
     public function __construct(
         public string $paymentReference,
         public ?Money $amount = null,

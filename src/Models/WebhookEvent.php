@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 use Mo7mud\LaravelPaymentGateway\Enums\WebhookEventStatus;
 use Mo7mud\LaravelPaymentGateway\Support\PackageConfig;
 
+/**
+ * @property WebhookEventStatus|null $status
+ */
 final class WebhookEvent extends Model
 {
     protected $guarded = ['id'];

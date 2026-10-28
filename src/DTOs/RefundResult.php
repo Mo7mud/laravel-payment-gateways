@@ -12,6 +12,7 @@ final readonly class RefundResult
 {
     /**
      * @param  Money|null  $totalRefunded  Cumulative refunded amount reported by the gateway, when available.
+     * @param  array<mixed>  $metadata
      */
     public function __construct(
         public string $paymentReference,

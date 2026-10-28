@@ -33,8 +33,10 @@ final class KashierSignatureVerifier
     ) {}
 
     /**
-     * @return array<string, scalar|null> Only the signed fields. Callers must not
-     *                                    read decision-relevant values from anywhere else in the payload.
+     * @param  array<mixed>  $headers
+     * @param  array<mixed>  $payload
+     * @return array<string, mixed> Only the signed fields. Callers must not
+     *                              read decision-relevant values from anywhere else in the payload.
      */
     public function verifyWebhook(array $payload, array $headers): array
     {
@@ -97,6 +99,9 @@ final class KashierSignatureVerifier
         return $signed;
     }
 
+    /**
+     * @param  array<mixed>  $query
+     */
     public function verifyRedirect(array $query): void
     {
         $this->assertConfigured();
@@ -157,6 +162,9 @@ final class KashierSignatureVerifier
         return (string) $value;
     }
 
+    /**
+     * @param  array<mixed>  $headers
+     */
     private function header(array $headers, string $name): ?string
     {
         foreach ($headers as $key => $value) {

@@ -29,6 +29,14 @@ use Mo7mud\LaravelPaymentGateway\ValueObjects\Money;
  * @property \DateTimeImmutable|null $fulfilled_at
  * @property int|null $fulfilment_dispatches
  * @property \DateTimeImmutable|null $next_fulfilment_dispatch_at
+ * @property array<mixed>|null $metadata
+ * @property string|null $checkout_url
+ * @property \DateTimeImmutable|null $paid_at
+ * @property \DateTimeImmutable|null $refunded_at
+ * @property \DateTimeImmutable|null $expires_at
+ * @property \DateTimeImmutable|null $next_reconcile_at
+ * @property \DateTimeInterface|null $created_at
+ * @property \DateTimeInterface|null $updated_at
  */
 final class Payment extends Model
 {

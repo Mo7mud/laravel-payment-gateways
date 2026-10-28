@@ -14,7 +14,7 @@ use Mo7mud\LaravelPaymentGateway\Gateways\Fawaterk\Exceptions\FawaterkConfigurat
 final class FawaterkTokenManager
 {
     /**
-     * @param  callable(string, array): array  $tokenRequester
+     * @param  Closure(string, array<string, mixed>): array<mixed>  $tokenRequester
      */
     public function __construct(
         private readonly CacheRepository $cache,
@@ -39,7 +39,7 @@ final class FawaterkTokenManager
 
         // One worker refreshes; the others wait and reuse its token instead of
         // stampeding the OAuth endpoint (and invalidating each other's refresh tokens).
-        $store = method_exists($this->cache, 'getStore') ? $this->cache->getStore() : null;
+        $store = $this->cache->getStore();
         if ($store instanceof LockProvider) {
             try {
                 return $store->lock($this->cacheKey().':lock', 15)->block(10, fn (): string => $this->refreshAccessToken());
@@ -95,6 +95,7 @@ final class FawaterkTokenManager
         $this->cache->put($this->cacheKey(), $cached, max(1, $this->clockSkew + 1));
     }
 
+    /** @param  array<mixed>  $cached */
     private function isAccessTokenValid(array $cached): bool
     {
         return isset($cached['access_token'], $cached['expires_at'])
@@ -103,6 +104,7 @@ final class FawaterkTokenManager
             && (int) $cached['expires_at'] > (time() + $this->clockSkew);
     }
 
+    /** @param  array<mixed>  $token */
     private function storeToken(array $token, ?string $previousRefreshToken): string
     {
         $accessToken = (string) ($token['access_token'] ?? '');

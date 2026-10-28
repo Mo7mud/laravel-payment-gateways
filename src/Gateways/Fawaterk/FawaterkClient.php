@@ -19,21 +19,34 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
         private readonly int $connectTimeout = 5,
     ) {}
 
+    /**
+     * @return array<mixed>
+     */
     public function getPaymentMethods(): array
     {
         return $this->request('get', '/api/v3/getTrPaymentmethods')['data'] ?? [];
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<mixed>
+     */
     public function createTransaction(array $payload): array
     {
         return $this->request('post', '/api/v3/createTransaction', $payload);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getTransactionData(string $intentKey): array
     {
         return $this->request('post', '/api/v3/getTransactionData', ['intent_key' => $intentKey]);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getTransactionsData(string $startDate, string $endDate, int $perPage = 15, ?string $payloadFilter = null, int $page = 1): array
     {
         return $this->request('get', '/api/v3/getTransactionsData', null, array_filter([
@@ -45,42 +58,69 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
         ], static fn ($value): bool => $value !== null && $value !== ''));
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getRefundTypes(?string $lang = null): array
     {
         return $this->request('post', '/api/v3/refund/refundTypes', $lang !== null ? ['lang' => $lang] : [])['data'] ?? [];
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getRefundReasons(?string $lang = null): array
     {
         return $this->request('post', '/api/v3/refund/refundReasons', $lang !== null ? ['lang' => $lang] : [])['data'] ?? [];
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<mixed>
+     */
     public function createRefund(array $payload): array
     {
         return $this->request('post', '/api/v3/refund/create', $payload);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function deleteRefund(int $refundId): array
     {
         return $this->request('post', '/api/v3/refund/delete', ['refund_id' => $refundId]);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function listRefunds(): array
     {
         return $this->request('post', '/api/v3/refund/index');
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function listRefundsPage(int $page): array
     {
         // Laravel paginators read "page" from the query string.
         return $this->request('post', '/api/v3/refund/index', [], ['page' => max(1, $page)]);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getRefundDetails(int $refundId): array
     {
         return $this->request('get', '/api/v3/refund/details/'.rawurlencode((string) $refundId));
     }
 
+    /**
+     * @param  array<mixed>|null  $body
+     * @param  array<mixed>  $query
+     * @return array<mixed>
+     */
     private function request(string $method, string $path, ?array $body = null, array $query = []): array
     {
         if ($this->apiBaseUrl === '') {
@@ -144,6 +184,9 @@ final class FawaterkClient implements FawaterkClientInterface, FawaterkRefundPag
         }
     }
 
+    /**
+     * @param  array<mixed>  $query
+     */
     private function url(string $path, array $query = []): string
     {
         $url = rtrim($this->apiBaseUrl, '/').'/'.ltrim($path, '/');

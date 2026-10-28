@@ -33,6 +33,9 @@ final class InMemoryWebhookEventRepository implements WebhookEventRepositoryInte
         return $this->find($gateway, $eventId);
     }
 
+    /**
+     * @param  array<mixed>  $payload
+     */
     public function storeIfAbsent(
         string $gateway,
         string $eventId,

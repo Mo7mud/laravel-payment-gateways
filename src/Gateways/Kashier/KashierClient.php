@@ -24,6 +24,10 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         private readonly int $readRetries = 2,
     ) {}
 
+    /**
+     * @param  array<mixed>  $payload
+     * @return array<mixed>
+     */
     public function createPaymentSession(array $payload): array
     {
         return $this->request('post', rtrim($this->apiBaseUrl, '/').'/v3/payment/sessions', [
@@ -34,6 +38,9 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         ], $payload);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getPaymentSession(string $sessionId): array
     {
         return $this->request('get', rtrim($this->apiBaseUrl, '/').'/v3/payment/sessions/'.rawurlencode($sessionId).'/payment', [
@@ -42,6 +49,9 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         ]);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function abandonPaymentSession(string $sessionId): array
     {
         // Not retried automatically (only reads are).
@@ -52,17 +62,26 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         ], []);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getOrderStatus(string $merchantOrderId, ?string $status = null, ?string $startDate = null, ?string $endDate = null): array
     {
         return $this->searchOrders($merchantOrderId, null, null, $status, $startDate, $endDate);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getOrdersPage(string $merchantOrderId, int $page, int $limit = 20): array
     {
         // Only "page" is sent: the page size stays Kashier's documented default.
         return $this->searchOrders($merchantOrderId, $page > 1 ? $page : null, null);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function refund(string $orderId, ?string $amount, ?string $reason): array
     {
         $transaction = [];
@@ -83,6 +102,9 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         ], $body);
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function searchOrders(
         string $merchantOrderId,
         ?int $page,
@@ -117,6 +139,11 @@ final class KashierClient implements KashierClientInterface, KashierPaginatedOrd
         ]);
     }
 
+    /**
+     * @param  array<mixed>|null  $body
+     * @param  array<mixed>  $headers
+     * @return array<mixed>
+     */
     private function request(string $method, string $url, array $headers, ?array $body = null): array
     {
         if ($this->secretKey === '' || $this->paymentApiKey === '') {
