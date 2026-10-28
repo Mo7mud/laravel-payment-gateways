@@ -15,6 +15,10 @@ All notable changes to this package are documented here. The format follows
   capture is a late payment, as with gateways without a cancellation API.
 
 ### Added
+- Laravel Boost guidelines (`resources/boost/guidelines/core.blade.php`):
+  creating payments, the event listener contract with `markFulfilled()`,
+  refunds, cancellation and building a settings page with
+  `GatewaySettingsManager`.
 - Translations (`lang/en`, `lang/ar`) under the `payment-gateway` namespace,
   publishable with `--tag=payment-gateway-translations`. The settings page,
   the 403 message, save warnings and the saved message are translated.
